@@ -1,0 +1,345 @@
+/**
+ * 全局设计令牌(CSS 变量).
+ *
+ * 命名: --cx-* (cinema-x).
+ * 引用: var(--cx-color-primary) 等.
+ *
+ * 设计方向: 现代影院 + 暗色基底 + 暗金/酒红强调色.
+ * 暗色更适配 ECharts 与电影海报.
+ */
+
+:root {
+  /* 让浏览器原生控件 / 表单自动填充 / 滚动条按暗色渲染 */
+  color-scheme: dark;
+
+  /* 品牌主色: 暖金(默认主按钮) */
+  --cx-color-primary: #c9a96e;
+  --cx-color-primary-hover: #d4b681;
+  --cx-color-primary-active: #b8945a;
+  --cx-color-primary-contrast: #1a1208;
+
+  /* 品牌次色: 酒红(高亮/重要操作) */
+  --cx-color-accent: #7c1d3f;
+  --cx-color-accent-hover: #922651;
+  --cx-color-accent-contrast: #fff5f7;
+
+  /* 语义辅助色: 票房金 / 奖牌银铜(榜单、评分数值等) */
+  --cx-gold: #fbbf24;
+  --cx-rank-silver: #d1d5db;
+  --cx-rank-bronze: #d97706;
+
+  /* 暗色基底 */
+  --cx-bg-base: #0f1419;
+  --cx-bg-elevated: #1a1f2e;
+  --cx-bg-card: rgba(255, 255, 255, 0.04);
+  --cx-bg-card-hover: rgba(255, 255, 255, 0.08);
+  --cx-bg-glass: rgba(255, 255, 255, 0.06);
+  --cx-bg-glass-strong: rgba(255, 255, 255, 0.1);
+
+  /* 文本 */
+  --cx-text-primary: #f4f4f5;
+  --cx-text-secondary: #a1a1aa;
+  /* 原 #71717a 在 --cx-bg-elevated 上对比度约 2.9:1, 低于 WCAG AA 4.5:1;
+     11~12px 辅助文字大量使用该令牌, 提亮一档. */
+  --cx-text-muted: #8b8b94;
+  --cx-text-on-light: #1f1f1f;
+
+  /* 边框 / 分隔 */
+  --cx-border: rgba(255, 255, 255, 0.1);
+  --cx-border-strong: rgba(255, 255, 255, 0.18);
+  --cx-divider: rgba(255, 255, 255, 0.06);
+
+  /* 状态 */
+  --cx-success: #10b981;
+  --cx-warning: #f59e0b;
+  --cx-danger: #ef4444;
+  --cx-info: #3b82f6;
+
+  /* ===== 座位类型配色 =====
+     对应后端 seat.type: 1 标准 / 2 情侣 / 3 VIP / 4 无障碍.
+     **三类页面共用这几个令牌**: 座位图编辑器(画) / 影厅预览(看) / 选座页(买).
+     之前三处各写各的 rgba, 颜色和文案都对不上, 而且预览和选座页**根本没有无障碍**.
+     要改座位配色只改这里, 组件里不要再写死颜色. */
+  --cx-seat-standard-bg: rgba(255, 255, 255, 0.08);
+  --cx-seat-standard-border: rgba(255, 255, 255, 0.22);
+  --cx-seat-standard-text: #d4d4d8;
+
+  --cx-seat-couple-bg: rgba(245, 158, 11, 0.18);
+  --cx-seat-couple-border: rgba(245, 158, 11, 0.45);
+  --cx-seat-couple-text: #fbbf24;
+
+  --cx-seat-vip-bg: rgba(124, 29, 63, 0.30);
+  --cx-seat-vip-border: rgba(124, 29, 63, 0.65);
+  --cx-seat-vip-text: #e5a8c0;
+
+  --cx-seat-accessible-bg: rgba(64, 158, 255, 0.20);
+  --cx-seat-accessible-border: rgba(64, 158, 255, 0.55);
+  --cx-seat-accessible-text: #7cc0ff;
+
+  /* 过道 / 该场次没有票的格子: 不画实心, 只用虚线示意"这里没有座位" */
+  --cx-seat-aisle-border: rgba(255, 255, 255, 0.14);
+
+  /* 阴影 */
+  --cx-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.16);
+  --cx-shadow-md: 0 8px 32px rgba(0, 0, 0, 0.2);
+  --cx-shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.32);
+  --cx-glow-primary: 0 0 24px rgba(201, 169, 110, 0.24);
+  --cx-glow-accent: 0 0 24px rgba(124, 29, 63, 0.32);
+
+  /* 圆角 */
+  --cx-radius-sm: 6px;
+  --cx-radius-md: 12px;
+  --cx-radius-lg: 16px;
+  --cx-radius-xl: 24px;
+  --cx-radius-full: 9999px;
+
+  /* 间距 */
+  --cx-space-1: 4px;
+  --cx-space-2: 8px;
+  --cx-space-3: 12px;
+  --cx-space-4: 16px;
+  --cx-space-5: 20px;
+  --cx-space-6: 24px;
+  --cx-space-8: 32px;
+  --cx-space-10: 40px;
+  --cx-space-12: 48px;
+
+  /* 排版 */
+  --cx-font-family: 'Inter', 'PingFang SC', 'Helvetica Neue', system-ui, sans-serif;
+  --cx-font-display: 'Inter', 'PingFang SC', system-ui, sans-serif;
+  --cx-font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+
+  /* 动画 */
+  --cx-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --cx-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --cx-duration-fast: 120ms;
+  --cx-duration-base: 220ms;
+  --cx-duration-slow: 360ms;
+
+  /* 布局 */
+  --cx-header-h: 64px;
+  --cx-aside-w: 240px;
+  --cx-aside-w-collapsed: 64px;
+  --cx-content-max-w: 1280px;
+  /* 后台图表统一高度(Overview/Revenue) */
+  --cx-chart-h: 320px;
+}
+
+/* 覆盖 Element Plus 主色
+   同时命中 html.dark: 官方 dark/css-vars.css 的选择器是 html.dark,
+   比 :root 更具体; 这里用同优先级 + 后加载来保证品牌色胜出. */
+:root,
+html.dark {
+  --el-color-primary: var(--cx-color-primary);
+  /* 暗色主题下 light-N 是「主色与黑混合」的深色梯度.
+     早先沿用浅色值(#f3e7d3 等), 导致 el-select 选项 / 下拉菜单 hover
+     是近白奶油底配浅灰字, 几乎不可读. */
+  --el-color-primary-light-3: #a98d58;
+  --el-color-primary-light-5: #7f6a45;
+  --el-color-primary-light-7: #554a33;
+  --el-color-primary-light-8: #403827;
+  --el-color-primary-light-9: #2a2519;
+  --el-color-primary-dark-2: var(--cx-color-primary-active);
+
+  --el-color-danger: var(--cx-danger);
+  --el-color-success: var(--cx-success);
+  --el-color-warning: var(--cx-warning);
+  --el-color-info: var(--cx-info);
+
+  --el-bg-color: var(--cx-bg-base);
+  --el-bg-color-page: var(--cx-bg-base);
+  --el-bg-color-overlay: var(--cx-bg-elevated);
+  --el-text-color-primary: var(--cx-text-primary);
+  --el-text-color-regular: var(--cx-text-secondary);
+  --el-text-color-secondary: var(--cx-text-muted);
+  --el-border-color: var(--cx-border);
+  --el-border-color-light: var(--cx-divider);
+  --el-border-color-lighter: var(--cx-divider);
+  --el-fill-color-blank: var(--cx-bg-elevated);
+  --el-mask-color: rgba(0, 0, 0, 0.6);
+
+  --el-border-radius-base: var(--cx-radius-md);
+  --el-border-radius-small: var(--cx-radius-sm);
+  --el-font-family: var(--cx-font-family);
+}
+
+/* 全局基础样式 */
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--cx-bg-base);
+  color: var(--cx-text-primary);
+  font-family: var(--cx-font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: var(--cx-color-primary);
+  text-decoration: none;
+  transition: color var(--cx-duration-fast) var(--cx-ease);
+}
+
+a:hover {
+  color: var(--cx-color-primary-hover);
+}
+
+/* 主按钮: 白字配金底对比度约 2.1:1, 改用深棕字(--cx-color-primary-contrast).
+   只作用于实心 primary 按钮, 不影响 text/link 形态. */
+.el-button--primary:not(.is-text):not(.is-link):not(.is-plain) {
+  --el-button-text-color: var(--cx-color-primary-contrast);
+  --el-button-hover-text-color: var(--cx-color-primary-contrast);
+  --el-button-active-text-color: var(--cx-color-primary-contrast);
+  --el-button-disabled-text-color: var(--cx-color-primary-contrast);
+}
+
+/* 全局焦点环兜底: 未单独写 focus-visible 的元素也有统一可见的焦点态 */
+:focus-visible {
+  outline: 2px solid var(--cx-color-primary);
+  outline-offset: 2px;
+}
+
+/* 选中文本 */
+::selection {
+  background: color-mix(in srgb, var(--cx-color-primary) 32%, transparent);
+  color: var(--cx-text-primary);
+}
+
+/* 滚动条 */
+html {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 通用工具类 */
+.cx-card {
+  background: var(--cx-bg-card);
+  border: 1px solid var(--cx-border);
+  border-radius: var(--cx-radius-lg);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  transition:
+    background var(--cx-duration-base) var(--cx-ease),
+    border-color var(--cx-duration-base) var(--cx-ease),
+    transform var(--cx-duration-base) var(--cx-ease);
+}
+
+.cx-card:hover {
+  background: var(--cx-bg-card-hover);
+  border-color: var(--cx-border-strong);
+}
+
+.cx-glass {
+  background: var(--cx-bg-glass);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid var(--cx-border);
+}
+
+.cx-page {
+  max-width: var(--cx-content-max-w);
+  margin: 0 auto;
+  padding: var(--cx-space-6) var(--cx-space-4);
+}
+
+.cx-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--cx-space-6);
+}
+
+.cx-subtitle {
+  font-size: 14px;
+  color: var(--cx-text-secondary);
+  margin: 0 0 var(--cx-space-4);
+}
+
+.cx-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--cx-radius-full);
+  font-size: 12px;
+  background: color-mix(in srgb, var(--cx-color-primary) 12%, transparent);
+  color: var(--cx-color-primary);
+  border: 1px solid color-mix(in srgb, var(--cx-color-primary) 30%, transparent);
+}
+
+.cx-tag--accent {
+  background: color-mix(in srgb, var(--cx-color-accent) 16%, transparent);
+  color: #e5a8c0;
+  border-color: color-mix(in srgb, var(--cx-color-accent) 40%, transparent);
+}
+
+.cx-tag--muted {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--cx-text-secondary);
+  border-color: var(--cx-border);
+}
+
+/* 渐变文字(用于 hero 标题) */
+.cx-gradient-text {
+  background: linear-gradient(135deg, var(--cx-color-primary), var(--cx-color-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Element Plus 在暗色下的微调 */
+.el-table {
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: rgba(255, 255, 255, 0.04);
+  /* hover/选中都用暗金而不是白: 默认 hover 是 --el-fill-color-light(#f5f7fa 近白),
+     选中是 --el-color-primary-light-9(#f3e7d3 浅奶油), 暗色下都白成一片. */
+  --el-table-row-hover-bg-color: color-mix(in srgb, var(--cx-color-primary) 8%, transparent);
+  --el-table-current-row-bg-color: color-mix(in srgb, var(--cx-color-primary) 14%, transparent);
+  --el-table-border-color: var(--cx-divider);
+  /* 斑马行(.el-table__row--striped)读的是 --el-fill-color-lighter, 默认 #fafafa 近白,
+     白字直接被吃掉. 只在表格作用域内覆盖 —— 不动 :root 的全局值, 骨架屏等组件不受影响. */
+  --el-fill-color-lighter: rgba(255, 255, 255, 0.03);
+  background: transparent;
+}
+
+.el-card {
+  background: var(--cx-bg-card);
+  border-color: var(--cx-border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.el-input__wrapper,
+.el-textarea__inner {
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 0 1px var(--cx-border) inset;
+}
+
+.el-input__wrapper:hover,
+.el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px var(--cx-border-strong) inset;
+}
+
+.el-pagination {
+  --el-pagination-bg-color: transparent;
+  justify-content: flex-end;
+}

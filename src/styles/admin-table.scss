@@ -1,0 +1,103 @@
+/**
+ * 后台表格页共享的单元格样式 —— UserManage / AdminList 共用.
+ * 通过各组件 scoped 样式里的 `@use '../../styles/admin-table' as *` 引入,
+ * 作用域仍由组件的 scoped 属性保证, 不会泄漏到其他页面.
+ */
+
+/* ===== 用户单元格: 头像 + 昵称 + ID ===== */
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--cx-space-3);
+
+  .el-avatar {
+    flex-shrink: 0;
+    background: color-mix(in srgb, var(--cx-color-primary) 16%, transparent);
+    color: var(--cx-color-primary);
+    font-weight: 600;
+    border: 1px solid color-mix(in srgb, var(--cx-color-primary) 28%, transparent);
+  }
+}
+
+.user-meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+  min-width: 0;
+
+  .user-name {
+    font-weight: 600;
+    /* 与表格其他列同亮度(--el-table-text-color 走 --cx-text-secondary),
+       别用 --cx-text-primary 的近白 —— 斑马行/hover 偏白时名字会糊掉 */
+    color: var(--cx-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .user-id {
+    font-size: 12px;
+    color: var(--cx-text-muted);
+    font-family: var(--cx-font-mono);
+  }
+}
+
+/* ===== 时间: 日期主显, 时分淡显 ===== */
+
+.time-cell {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+
+  .date {
+    font-variant-numeric: tabular-nums;
+    color: var(--cx-text-secondary);
+  }
+  .time {
+    font-size: 12px;
+    color: var(--cx-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ===== 状态胶囊 ===== */
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--cx-radius-full);
+  font-size: 12px;
+  border: 1px solid;
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  &.is-normal {
+    color: var(--cx-success);
+    border-color: color-mix(in srgb, var(--cx-success) 35%, transparent);
+    background: color-mix(in srgb, var(--cx-success) 10%, transparent);
+    .dot {
+      background: var(--cx-success);
+      box-shadow: 0 0 6px color-mix(in srgb, var(--cx-success) 60%, transparent);
+    }
+  }
+
+  &.is-off {
+    color: var(--cx-text-muted);
+    border-color: var(--cx-border);
+    background: rgba(255, 255, 255, 0.04);
+    .dot {
+      background: var(--cx-text-muted);
+    }
+  }
+}
+
+.muted {
+  color: var(--cx-text-muted);
+}

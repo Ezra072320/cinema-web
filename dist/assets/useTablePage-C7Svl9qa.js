@@ -1,0 +1,1 @@
+import{o as f,r as a}from"./vendor-vue-WJmCotwM.js";function m(c,l={}){const n=a([]),i=a(0),t=a(!1),e=a(1),s=l.limit??10;async function o(){t.value=!0;try{const u=await c(e.value,s);n.value=u.rows??[],i.value=u.total??0}catch{}finally{t.value=!1}}function r(){e.value=1,o()}return l.immediate!==!1&&f(o),{list:n,total:i,loading:t,page:e,limit:s,load:o,search:r}}export{m as u};

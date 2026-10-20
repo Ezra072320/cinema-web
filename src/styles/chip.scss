@@ -1,0 +1,157 @@
+/**
+ * 筛选条共享样式 —— Hall 筛选容器 + DateFilterChips / MovieFilterChips 胶囊行共用.
+ * 通过各组件 scoped 样式里的 `@use '../../styles/chip' as *` 引入,
+ * 作用域仍由组件的 scoped 属性保证, 不会泄漏到其他页面.
+ */
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cx-space-3);
+  padding: var(--cx-space-4);
+  border-radius: var(--cx-radius-lg);
+  margin-bottom: var(--cx-space-5);
+  /* 页面长, 调筛选时必须够得着: 页头 z-index=100 之下, 内容之上 */
+  position: sticky;
+  top: var(--cx-header-h);
+  z-index: 20;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: var(--cx-space-3);
+  min-width: 0;
+}
+
+.row-label {
+  flex-shrink: 0;
+  width: 2.5em;
+  font-size: 12px;
+  color: var(--cx-text-muted);
+}
+
+.chip-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  /* 一行放不下时给出细滚动条, 提示可横滑 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+.chip {
+  appearance: none;
+  font: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: var(--cx-radius-full);
+  border: 1px solid var(--cx-border);
+  background: transparent;
+  color: var(--cx-text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+  transition:
+    background var(--cx-duration-fast) var(--cx-ease),
+    border-color var(--cx-duration-fast) var(--cx-ease),
+    color var(--cx-duration-fast) var(--cx-ease),
+    transform var(--cx-duration-fast) var(--cx-ease),
+    opacity var(--cx-duration-fast) var(--cx-ease);
+
+  &:hover {
+    background: var(--cx-bg-card-hover);
+    color: var(--cx-text-primary);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--cx-color-primary);
+    outline-offset: 2px;
+  }
+
+  /* 选中态: 金色渐变 + 辉光(同 Movie.vue 分段控件选中态) */
+  &.is-active {
+    background: linear-gradient(135deg, var(--cx-color-primary), var(--cx-color-accent));
+    border-color: transparent;
+    color: #fff;
+    box-shadow: var(--cx-glow-primary);
+    transform: translateY(-1px);
+
+    .count {
+      background: rgba(255, 255, 255, 0.22);
+      color: #fff;
+    }
+  }
+
+  /* 交叉计数为 0: 半透明但仍可点(解释"为什么无结果") */
+  &.is-zero {
+    opacity: 0.42;
+  }
+
+  .count {
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: var(--cx-radius-full);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--cx-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.chip--movie {
+  .thumb {
+    width: 22px;
+    height: 30px;
+    object-fit: cover;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .name {
+    max-width: 8em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.filter-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cx-space-3);
+  font-size: 12px;
+  color: var(--cx-text-muted);
+
+  .matched strong {
+    color: var(--cx-color-primary);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* 无障碍: 系统要求减少动态效果时关掉胶囊位移 */
+@media (prefers-reduced-motion: reduce) {
+  .chip:hover,
+  .chip.is-active {
+    transform: none;
+  }
+}
