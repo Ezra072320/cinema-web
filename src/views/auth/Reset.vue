@@ -19,7 +19,7 @@ const rules: FormRules = {
   oldPassword: [{ required: true, message: '请输入当前密码', trigger: 'blur' }],
   newPassword: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, max: 24, message: '长度 6~24 位', trigger: 'blur' },
+    { pattern: /^\S{6,16}$/, message: '密码需为 6~16 个非空字符', trigger: 'blur' },
     {
       validator: (_, v: string, cb) =>
         v !== form.oldPassword ? cb() : cb(new Error('新密码不能与旧密码相同')),
@@ -45,6 +45,7 @@ async function submit() {
   const r = await resetPassword({
     oldPassword: form.oldPassword,
     newPassword: form.newPassword,
+    confirmPassword: form.confirm,
   });
   loading.value = false;
 
@@ -76,7 +77,7 @@ async function submit() {
         <el-input
           v-model="form.newPassword"
           type="password"
-          placeholder="6~24 位"
+          placeholder="6~16 位"
           autocomplete="new-password"
           show-password
         />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { movieApi } from '@/api';
 import { useAuth } from '@/composables/useAuth';
@@ -26,17 +26,21 @@ const loading = ref(true);
 const error = ref<unknown>(null);
 const showTrailer = ref(false);
 
+let loadSeq = 0;
 async function load() {
+  const seq = ++loadSeq;
   loading.value = true;
   error.value = null;
   try {
     const data = await movieApi.info(movieId.value);
+    if (seq !== loadSeq) return;
     movie.value = data;
   } catch (err) {
+    if (seq !== loadSeq) return;
     // toast 由 http 拦截器统一弹; 这里只记 error 渲染重试入口
     error.value = err;
   } finally {
-    loading.value = false;
+    if (seq === loadSeq) loading.value = false;
   }
 }
 
@@ -85,7 +89,10 @@ const boxText = computed(() => {
   return parts.join(' · ');
 });
 
-onMounted(load);
+watch(movieId, () => {
+  showTrailer.value = false;
+  void load();
+}, { immediate: true });
 </script>
 
 <template>

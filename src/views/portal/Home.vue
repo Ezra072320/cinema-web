@@ -19,6 +19,7 @@ const topSales = ref<MovieSoldVO[]>([]);
 const topBox = ref<MovieSoldVO[]>([]);
 const loading = ref(true);
 const error = ref<unknown>(null);
+const rankErrors = ref({ sales: false, box: false });
 /** 榜单 tab: 公开票房(全国累计, 亿级) / 影院销售(本店已支付票款, 元级). */
 const rankTab = ref<'box' | 'sales'>('box');
 
@@ -26,16 +27,17 @@ async function load() {
   loading.value = true;
   error.value = null;
   try {
-    const [h, s, b] = await Promise.all([
+    const [h, s, b] = await Promise.allSettled([
       movieApi.hot(),
       movieApi.topSales(),
       movieApi.topBoxOffice(),
     ]);
-    hot.value = h ?? [];
-    topSales.value = s ?? [];
-    topBox.value = b ?? [];
+    if (h.status === 'rejected') throw h.reason;
+    hot.value = h.value ?? [];
+    topSales.value = s.status === 'fulfilled' ? s.value ?? [] : [];
+    topBox.value = b.status === 'fulfilled' ? b.value ?? [] : [];
+    rankErrors.value = { sales: s.status === 'rejected', box: b.status === 'rejected' };
   } catch (err) {
-    // toast 由 http 拦截器统一弹; 三接口整体加载, 失败整页 ErrorState
     error.value = err;
   } finally {
     loading.value = false;
@@ -197,7 +199,11 @@ onMounted(load);
               {{ rankTab === 'box' ? '全国累计票房（公开数据）' : '本店已支付票款' }}
             </span>
 
-            <ol v-if="rankRows.length" class="rank-list">
+            <div v-if="rankErrors[rankTab]" class="rank-empty" role="status">
+              榜单暂时加载失败
+              <el-button text type="primary" @click="load">重试</el-button>
+            </div>
+            <ol v-else-if="rankRows.length" class="rank-list">
               <li
                 v-for="(m, idx) in rankRows"
                 :key="m.movieId"

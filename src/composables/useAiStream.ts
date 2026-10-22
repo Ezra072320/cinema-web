@@ -1,12 +1,14 @@
 import { ref, type Ref } from 'vue';
 import { streamFetch } from '@/api/http';
-import { decodeAiEvent } from '@/utils/ai';
+import { readAiStream } from '@/utils/ai';
+import type { AiAction } from '@/types';
 
 export interface AiStreamHandlers {
   /** 每个 SSE 事件解析出的文本片段(逐段追加到回复). */
   onText: (text: string) => void;
   /** 服务端显式错误帧. */
   onErrorFrame: (message: string) => void;
+  onDone: (actions: AiAction[], completed: boolean) => void;
 }
 
 /**
@@ -41,33 +43,18 @@ export function useAiStream(): {
     const request = new AbortController();
     controller = request;
     connected.value = false;
-    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
-    const consume = (raw: string) => {
-      const event = decodeAiEvent(raw);
-      if (event.text) handlers.onText(event.text);
-      if (event.error) handlers.onErrorFrame(event.error);
-    };
     try {
       const s = await streamFetch(question, chatId, token, request.signal);
       connected.value = true;
-      reader = s.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        // SSE 帧以空行分隔; 服务端可能分包, 缓冲到完整帧再解析
-        let boundary: RegExpExecArray | null;
-        while ((boundary = /\r?\n\r?\n/.exec(buffer))) {
-          consume(buffer.slice(0, boundary.index));
-          buffer = buffer.slice(boundary.index + boundary[0].length);
-        }
-      }
-      buffer += decoder.decode();
-      consume(buffer);
+      await readAiStream(s, event => {
+        // An old request can finish after the user has switched conversations.
+        if (request.signal.aborted || controller !== request) return;
+        if (event.text) handlers.onText(event.text);
+        if (event.error) handlers.onErrorFrame(event.error);
+        if (event.completion) handlers.onDone(event.completion.actions, event.completion.completed);
+      });
     } finally {
-      reader?.releaseLock();
+      if (controller === request) controller = null;
     }
   }
 

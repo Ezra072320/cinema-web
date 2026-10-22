@@ -23,7 +23,7 @@ const totalOrders = computed(() => totalOrderCount(counts.value));
 const rules: FormRules = {
   name: [
     { required: true, message: '请输入昵称', trigger: 'blur' },
-    { min: 2, max: 20, message: '长度 2~20 个字符', trigger: 'blur' },
+    { pattern: /^\S{2,16}$/, message: '昵称需为 2~16 个非空字符', trigger: 'blur' },
   ],
   age: [
     { required: true, message: '请输入年龄', trigger: 'blur' },
@@ -193,7 +193,7 @@ onMounted(load);
         @submit.prevent="save"
       >
         <el-form-item label="昵称" prop="name">
-          <el-input v-model="form.name" placeholder="2~20 个字符" maxlength="20" show-word-limit />
+          <el-input v-model="form.name" placeholder="2~16 个字符" maxlength="16" show-word-limit />
         </el-form-item>
 
         <el-form-item label="年龄" prop="age">

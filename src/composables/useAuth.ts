@@ -69,9 +69,10 @@ export function useAuth() {
   }
 
   /** 修改密码. */
-  async function resetPassword(form: { oldPassword: string; newPassword: string }) {
+  async function resetPassword(form: { oldPassword: string; newPassword: string; confirmPassword: string }) {
     try {
       await userApi.reset(form);
+      auth.reset();
       return { ok: true };
     } catch (err) {
       return { ok: false, msg: (err as { msg?: string })?.msg ?? '修改失败' };

@@ -52,10 +52,15 @@ http.interceptors.response.use(
       const { default: router } = await import('@/router');
       const current = router.currentRoute.value;
       const inManage = current.path.startsWith('/manage');
-      const target = (fromAdminArea || inManage) ? 'admin-login' : 'login';
+      const target = fromAdminArea || inManage ? 'admin-login' : 'login';
       if (current.name !== target) {
         router.replace({ name: target, query: { redirect: current.fullPath } });
       }
+    } else if (err.response?.status === 429) {
+      const seconds = Number(err.response.headers?.['retry-after']) || 2;
+      ElMessage.warning(`访问人数较多，请在${seconds}秒后重试；订单结果可在“我的订单”中查询`);
+    } else if (err.response?.status === 503) {
+      ElMessage.warning(err.response.data?.msg ?? '服务暂不可用，请稍后重试');
     } else if (!axios.isCancel(err)) {
       ElMessage.error(err.response?.data?.msg ?? err.message ?? '网络异常');
     }
@@ -87,7 +92,8 @@ declare module 'axios' {
  * 契约(2026-10-19 定稿): `POST /ai/chat`,body `{question, chatId}`,
  * 响应 `text/event-stream`. 每条事件 `data: "<JSON 字符串字面量>"` ——
  * JSON.parse 得到一个 token(换行/引号已被转义,不会撕开 SSE 帧);
- * 流结束=连接关闭,无 [DONE] 哨兵,也**没有**什么首行 chatId 事件.
+ * type=error对象报告失败；type=done对象携带服务单快照，表示本轮已收尾。
+ * 缺少done的连接关闭按中断处理，不将不完整回复标记成成功。
  */
 export async function streamFetch(
   question: string,
@@ -106,7 +112,7 @@ export async function streamFetch(
     signal,
   });
   if (!resp.ok) {
-    const data = await resp.json().catch(() => null) as { msg?: string } | null;
+    const data = (await resp.json().catch(() => null)) as { msg?: string } | null;
     const error = new Error(data?.msg ?? '客服连接失败') as Error & { status?: number };
     error.status = resp.status;
     throw error;
@@ -115,7 +121,7 @@ export async function streamFetch(
     throw new Error(`SSE connect failed: ${resp.status}`);
   }
   if (!resp.headers.get('content-type')?.includes('text/event-stream')) {
-    const data = await resp.json().catch(() => null) as { msg?: string } | null;
+    const data = (await resp.json().catch(() => null)) as { msg?: string } | null;
     throw new Error(data?.msg ?? '客服暂不可用，请稍后重试');
   }
   return resp.body;

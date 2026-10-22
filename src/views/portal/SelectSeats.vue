@@ -33,6 +33,13 @@ const data = ref<ScheduleSeats | null>(null);
 const selected = ref<Set<number>>(new Set());
 const loading = ref(true);
 const submitting = ref(false);
+const checkoutKey = ref(crypto.randomUUID());
+watch(
+  () => `${scheduleId.value}:${[...selected.value].sort((a, b) => a - b).join(',')}`,
+  () => {
+    checkoutKey.value = crypto.randomUUID();
+  },
+);
 
 /**
  * 情侣对几何(哪格被合并 / 跨几列 / 每格落在哪)由 useSeatGrid 提供,
@@ -73,9 +80,7 @@ function isBlank(s: ScheduleSeatItem | undefined): boolean {
  * 透明 aisle div, 选座页出现一大片空画布. 但网格**仍按原始画布尺寸(如 12×10)铺满**,
  * 座位用原始坐标定位不平移 —— 画在画布中央的座位仍然显示在中央, 相对银幕的位置固定.
  */
-const visibleSeats = computed(() =>
-  (data.value?.seats ?? []).filter((s) => !isBlank(s)),
-);
+const visibleSeats = computed(() => (data.value?.seats ?? []).filter((s) => !isBlank(s)));
 
 /** 有座位的排(升序). 整排都是空座的行只留行高(不显示排号). */
 const visibleRows = computed(() => {
@@ -211,8 +216,12 @@ function pairSelected(seatId: number): boolean {
   }
   const a = seatById(seatId);
   const b = seatById(partnerId);
-  return !!a?.ticketId && !!b?.ticketId
-    && selected.value.has(a.ticketId) && selected.value.has(b.ticketId);
+  return (
+    !!a?.ticketId &&
+    !!b?.ticketId &&
+    selected.value.has(a.ticketId) &&
+    selected.value.has(b.ticketId)
+  );
 }
 
 const selectedSeats = computed(() =>
@@ -265,6 +274,7 @@ watch(scheduleId, () => {
 });
 
 async function submit() {
+  if (submitting.value) return;
   if (!isLogin.value) {
     ElMessage.warning('请先登录');
     router.replace({ name: 'login', query: { redirect: route.fullPath } });
@@ -289,15 +299,22 @@ async function submit() {
 
   submitting.value = true;
   try {
-    const orderId = await userApi.createOrder({
-      scheduleId: scheduleId.value,
-      // 传票 id, 不是座位 id
-      ticketIds: [...selected.value],
-      // 不传 userId —— 后端从 token 取, 传了反而 400
-    });
+    const orderId = await userApi.createOrder(
+      {
+        scheduleId: scheduleId.value,
+        // 传票 id, 不是座位 id
+        ticketIds: [...selected.value],
+        // 不传 userId —— 后端从 token 取, 传了反而 400
+      },
+      checkoutKey.value,
+    );
     ElMessage.success('订单创建成功');
     router.replace({ name: 'pay', params: { orderId } });
-  } catch {
+  } catch (error) {
+    const failure = error as { response?: { status: number }; code?: string | number };
+    const status = failure.response?.status;
+    // 保留网络失败时的选择和操作编号，重试可恢复已提交的订单。
+    if (typeof failure.code !== 'number' && (!status || status === 429 || status >= 500)) return;
     // 拦截器已统一弹 ORDER_LOCK_FAILED 错误, 页面只刷新票态
     await load();
     selected.value = new Set();

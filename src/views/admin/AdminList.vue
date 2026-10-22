@@ -10,8 +10,8 @@ import { USER_STATUS, type Admin } from '@/types';
 
 const filter = reactive({ name: '' });
 
-const { list, total, loading, page, limit, load, search } = useTablePage<Admin>(() =>
-  adminApi.listAdmins({ name: filter.name || undefined }),
+const { list, total, loading, page, limit, load, search } = useTablePage<Admin>((page, limit) =>
+  adminApi.listAdmins({ page, limit, name: filter.name || undefined }),
 );
 
 const dialogVisible = ref(false);
@@ -27,11 +27,11 @@ const saving = ref(false);
 const rules: FormRules = {
   name: [
     { required: true, whitespace: true, message: '请输入管理员账号', trigger: 'blur' },
-    { min: 2, max: 32, message: '账号长度 2~32 个字符', trigger: 'blur' },
+    { pattern: /^\S{2,16}$/, message: '账号需为 2~16 个非空字符', trigger: 'blur' },
   ],
   password: [
     { required: true, message: '请输入登录密码', trigger: 'blur' },
-    { min: 6, max: 32, message: '密码长度 6~32 位', trigger: 'blur' },
+    { pattern: /^\S{6,16}$/, message: '密码需为 6~16 个非空字符', trigger: 'blur' },
   ],
 };
 
@@ -72,7 +72,7 @@ async function toggleStatus(a: Admin) {
   );
   if (!ok) return;
   try {
-    await adminApi.toggleAdmin(a.id, next);
+    await adminApi.toggleAdmin(a.name, next);
     ElMessage.success('已更新');
     await load();
   } catch {
@@ -190,10 +190,10 @@ async function remove(a: Admin) {
     <el-dialog v-model="dialogVisible" title="新增管理员" width="min(420px, 92vw)" align-center>
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="账号" prop="name" required>
-          <el-input v-model="form.name" placeholder="登录账号" maxlength="32" />
+          <el-input v-model="form.name" placeholder="登录账号" maxlength="16" />
         </el-form-item>
         <el-form-item label="密码" prop="password" required>
-          <el-input v-model="form.password" type="password" show-password placeholder="6~32 位登录密码" maxlength="32" />
+          <el-input v-model="form.password" type="password" show-password placeholder="6~16 位登录密码" />
         </el-form-item>
         <el-form-item label="年龄">
           <el-input-number v-model="form.age" :min="1" :max="120" />

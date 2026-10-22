@@ -55,7 +55,7 @@ interface OrderAdminParams extends PageQuery {
   keyword?: string;
 }
 
-interface AdminListParams {
+interface AdminListParams extends PageQuery {
   name?: string;
   status?: number;
 }
@@ -184,7 +184,7 @@ type RegisterPayload = {
 export const captchaApi = {
   image: (ticket: string) => `/api/captcha/image?ticket=${encodeURIComponent(ticket)}`,
   check: (payload: import('@/types').CaptchaCheckPayload) =>
-    http.post<boolean>('/api/captcha/check', payload),
+    http.post<boolean>('/captcha/check', payload),
 };
 
 // ===== 用户 =====
@@ -196,7 +196,7 @@ export const userApi = {
   info: () => http.get<UserProfile>('/user/info'),
   update: (form: { name: string; age: number }) => http.post<void>('/user/update', form),
   /** 修改密码(原项目叫 reset,语义同改密). */
-  reset: (form: { oldPassword: string; newPassword: string }) =>
+  reset: (form: { oldPassword: string; newPassword: string; confirmPassword: string }) =>
     http.post<void>('/user/reset', form),
   changeAvatar: (id: number, url: string) =>
     http.post<void>('/user/modAvatar', null, { params: { id, url } }),
@@ -207,19 +207,25 @@ export const userApi = {
   refund: (id: number) => http.post<string>(`/user/refund/${id}`),
   /** 取消待支付订单(释放座位、状态置已关闭). 2026-10-19 新增. */
   cancelOrder: (id: number) => http.post<string>(`/user/cancelOrder/${id}`),
-  createOrder: (form: CreateOrderForm) => http.post<number>('/user/createOrder', form),
+  createOrder: (form: CreateOrderForm, key: string = crypto.randomUUID()) =>
+    http.post<number>('/user/createOrder', form, { headers: { 'Idempotency-Key': key } }),
   score: (form: ScoreForm) => http.post<boolean>('/user/score', form),
   scoreInfo: (orderId: number) => http.get<ScoreRecord | null>(`/user/score/info/${orderId}`),
 };
 
 // ===== 管理员 =====
 export const reviewApi = {
-  context: (orderId: number) => http.get<import('@/types').ReviewContext>('/user/score/context/' + orderId),
-  mine: (page = 1, limit = 10) => http.get<PageResult<import('@/types').ReviewView>>('/user/scores', { params: { page, limit } }),
+  context: (orderId: number) =>
+    http.get<import('@/types').ReviewContext>('/user/score/context/' + orderId),
+  mine: (page = 1, limit = 10) =>
+    http.get<PageResult<import('@/types').ReviewView>>('/user/scores', { params: { page, limit } }),
   movie: (movieId: number, page = 1, sort = 'newest') =>
-    http.get<import('@/types').MovieReviewPage>('/movie/' + movieId + '/reviews', { params: { page, limit: 10, sort } }),
+    http.get<import('@/types').MovieReviewPage>('/movie/' + movieId + '/reviews', {
+      params: { page, limit: 10, sort },
+    }),
   save: (form: ScoreForm) => userApi.score(form),
-  remove: (orderId: number, version: number) => http.delete<void>('/user/score/' + orderId, { params: { version } }),
+  remove: (orderId: number, version: number) =>
+    http.delete<void>('/user/score/' + orderId, { params: { version } }),
 };
 
 export const adminApi = {
@@ -231,9 +237,9 @@ export const adminApi = {
     http.get<PageResult<Admin>>('/admin/list', { params }),
   addAdmin: (form: { name: string; password: string; age: number }) =>
     http.post<Admin>('/admin/addAdmin', form),
-  toggleAdmin: (id: number, status: number) =>
-    http.put<boolean>('/admin/user/status', { id, status }),
-  deleteAdmin: (id: number) => http.delete<boolean>(`/admin/user/delete/${id}`),
+  toggleAdmin: (name: string, status: number) =>
+    http.patch<void>('/admin/modStatus', { name, status }),
+  deleteAdmin: (id: number) => http.delete<boolean>(`/admin/delete/${id}`),
 
   userList: (params: UserListParams & PageQuery = {}) =>
     http.get<PageResult<UserProfile>>('/admin/user/list', { params }),
@@ -388,8 +394,11 @@ export const orderApi = {
 
 export const statApi = {
   overview: () => http.get<import('@/types').OverviewStat>('/statistic/getAll'),
-  revenue: (params: { startDate: string; endDate: string; granularity: 'day' | 'week' | 'month' }) =>
-    http.get<import('@/types').RevenueReport>('/statistic/revenue', { params }),
+  revenue: (params: {
+    startDate: string;
+    endDate: string;
+    granularity: 'day' | 'week' | 'month';
+  }) => http.get<import('@/types').RevenueReport>('/statistic/revenue', { params }),
 };
 
 // ===== AI 客服 =====
@@ -398,14 +407,17 @@ export const statApi = {
 // 这里是会话管理三件套 —— 按 chatId 的读写后端都做归属校验.
 
 export const aiApi = {
-  actions: (chatId: string) => http.get<import('@/types').AiAction[]>('/ai/actions/' + encodeURIComponent(chatId)),
-  confirm: (id: string) => http.post<import('@/types').AiAction>('/ai/action/' + encodeURIComponent(id) + '/confirm'),
-  dismiss: (id: string) => http.post<import('@/types').AiAction>('/ai/action/' + encodeURIComponent(id) + '/dismiss'),
+  stop: (chatId: string) => http.post<boolean>('/ai/stop/' + encodeURIComponent(chatId)),
+  actions: (chatId: string) =>
+    http.get<import('@/types').AiAction[]>('/ai/actions/' + encodeURIComponent(chatId)),
+  confirm: (id: string) =>
+    http.post<import('@/types').AiAction>('/ai/action/' + encodeURIComponent(id) + '/confirm'),
+  dismiss: (id: string) =>
+    http.post<import('@/types').AiAction>('/ai/action/' + encodeURIComponent(id) + '/dismiss'),
   /** 用户全部会话, 最近活动在前. 标题/时间是后端落库的真值. */
   sessions: () => http.get<AiSession[]>('/ai/sessions'),
   /** 会话历史({role, content, ts}[]). 会话不存在返回空表, 他人会话 → 403. */
-  history: (chatId: string) =>
-    http.get<import('@/types').AiMessage[]>(`/ai/history/${chatId}`),
+  history: (chatId: string) => http.get<import('@/types').AiMessage[]>(`/ai/history/${chatId}`),
   /** 删除会话及其全部消息. */
   deleteSession: (chatId: string) => http.delete<boolean>(`/ai/session/${chatId}`),
 };

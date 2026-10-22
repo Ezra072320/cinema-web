@@ -23,11 +23,11 @@ const loading = ref(false);
 const rules: FormRules = {
   name: [
     { required: true, message: '请输入昵称', trigger: 'blur' },
-    { min: 2, max: 20, message: '长度 2~20 个字符', trigger: 'blur' },
+    { pattern: /^\S{2,16}$/, message: '昵称需为 2~16 个非空字符', trigger: 'blur' },
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 24, message: '长度 6~24 位', trigger: 'blur' },
+    { pattern: /^\S{6,16}$/, message: '密码需为 6~16 个非空字符', trigger: 'blur' },
   ],
   confirm: [
     { required: true, message: '请再次输入密码', trigger: 'blur' },
@@ -86,14 +86,14 @@ async function submit() {
 
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent="submit">
       <el-form-item label="昵称" prop="name">
-        <el-input v-model="form.name" placeholder="2~20 个字符" clearable />
+        <el-input v-model="form.name" placeholder="2~16 个字符" clearable />
       </el-form-item>
 
       <el-form-item label="密码" prop="password">
         <el-input
           v-model="form.password"
           type="password"
-          placeholder="6~24 位"
+          placeholder="6~16 位"
           autocomplete="new-password"
           show-password
         />
