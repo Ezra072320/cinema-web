@@ -7,11 +7,31 @@ import { Refresh, Download, ArrowRight, InfoFilled } from '@element-plus/icons-v
 import { VChart } from '@/utils/chart';
 import type { EChartsOption } from 'echarts';
 import { statApi } from '@/api';
+import { useAuthStore } from '@/stores/auth';
 import type { RevenueMetrics, RevenueRank, RevenueReport } from '@/types';
 import { CINEMA_DARK } from '@/styles/echarts-theme';
 import { changePercent, chinaToday, revenueCsv, revenuePreset } from '@/utils/revenue';
 
 const route = useRoute();
+const auth = useAuthStore();
+const exporting = ref(false);
+async function downloadWorkbook() {
+  if (!data.value || loading.value || error.value || exporting.value) return;
+  const snapshot = data.value;
+  exporting.value = true;
+  try {
+    const blob = await statApi.exportRevenue({ startDate: snapshot.startDate, endDate: snapshot.endDate, granularity: snapshot.granularity });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `营收报表_${snapshot.startDate}_${snapshot.endDate}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch { /* Shared HTTP handler reports authentication and download errors. */ }
+  finally { exporting.value = false; }
+}
 const router = useRouter();
 const initial = revenuePreset('30');
 const range = ref<[string, string] | null>(
@@ -138,6 +158,7 @@ onBeforeUnmount(() => { sequence++; });
     <header class="report-heading">
       <div><span class="eyebrow">CINEMA / BUSINESS REPORT</span><h1>营收报表<span class="heading-rule" /></h1><p>看清每一笔成交，也看见退款后的真实留存。</p></div>
       <div class="heading-actions">
+        <el-button v-if="auth.can('report:export')" :icon="Download" :loading="exporting" :disabled="!data || loading || !!error" @click="downloadWorkbook">下载 Excel</el-button>
         <span v-if="data && !error" class="update-time">更新于 {{ data.generatedAt.slice(5, 16) }}</span>
         <el-button :icon="Refresh" :loading="loading" @click="load(true)">刷新数据</el-button>
         <el-dropdown :disabled="!data || loading || !!error" @command="download">

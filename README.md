@@ -1,8 +1,10 @@
-> 后端现采用 Gateway + 账户／影片／票务交易／AI 四个独立服务。浏览器统一请求 `/api`；开发代理指向 8080 网关。完整启动与数据迁移见 [后端 README](../cinema-server/README.md)。
+> 后端现采用 Gateway 与账户／影片／票务交易／AI／通知／搜索／优惠券独立服务。浏览器统一请求 `/api`；开发代理指向 8080 网关。完整启动与数据迁移见 [后端 README](../cinema-server/README.md)。
 >
 > 容器访问入口为 `http://localhost:8088`。`VITE_GATEWAY_TARGET` 只影响开发代理；`VITE_API_BASE` 设置浏览器 API 地址。前端收到 429／503 不会自动重放写请求；选座请求携带幂等编号，网络失败后保留本次编号以恢复订单。
 
 # cinema-web · 猫头鹰影院前端
+
+当前扩展方向为本地单实例微服务学习：搜索、优惠券、站内通知、上传和导出等前后端能力分批接入，千问 API 保留，文件继续存储到阿里云 OSS。模块与技术计划见 [本地技术栈方案](../cinema-server/docs/local-singleton-stack.md)；该计划不代表这些新页面和接口已经实现。
 
 基于Vue 3与TypeScript的单影院用户门户和管理后台，配套 [cinema-server](../cinema-server/README.md)。
 
@@ -261,3 +263,11 @@ server {
 | AI回复结束前卡住或中断 | 后端模型连接、流式错误、代理缓冲与读取超时 |
 
 前端路由守卫只是界面层约束，最终权限和金额判断在后端。接口返回、业务完成状态与页面文案不一致时应先核对领域服务，不以客服自然语言作为办理成功凭证。
+
+站内消息入口为 `/me/notifications`，支持未读筛选、批量已读、订单跳转和一次性票据认证的实时刷新。需要后端 messaging 启动组，具体见 [消息模块运行与验收](../cinema-server/docs/local-messaging-acceptance-2026-10-22.md)。
+
+影片列表 `/movie?q=...` 已接入 Search：支持片名、别名、演职员检索、高亮、类型/地区/热映筛选和排序。影片管理页可重建搜索资料。ES 停止时显示基础检索提示；Search 未启用时保留原片名检索。接口独立封装在 `src/api/search.ts`，运行与实际验收见 [搜索主线](../cinema-server/docs/local-search-acceptance-2026-10-22.md)。
+
+优惠券主线已联调：`/me/coupons` 领取与查看券包，选座页选择抵扣券，支付页显示原价与实付，`/manage/benefits` 发布券活动；AI 可查询券并拟购票服务单。启动本地 transactions 组，细节见 [AT 验收](../cinema-server/docs/local-transactions-acceptance-2026-10-22.md)。
+
+营收页新增“下载 Excel”，沿用当前统计参数，含说明、汇总、每日、趋势和排行六张表；需财务导出权限。JSON错误不会保存为工作簿，原CSV继续可用，见 [导出验收](../cinema-server/docs/local-export-acceptance-2026-10-23.md)。

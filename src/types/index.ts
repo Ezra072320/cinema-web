@@ -623,6 +623,10 @@ export interface ScheduleSeats {
 // ===== 订单 =====
 
 export interface OrderInfo {
+  couponId?: number;
+  originalAmount?: number;
+  discountAmount?: number;
+  transactionState?: string;
   id: number;
   number: string;
   userId: number;

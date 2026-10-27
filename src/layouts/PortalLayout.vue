@@ -119,6 +119,7 @@ function handleLogout() {
                   <el-dropdown-item command="/me/info">个人资料</el-dropdown-item>
                   <el-dropdown-item command="/me/orders/0">我的订单</el-dropdown-item>
                   <el-dropdown-item command="/me/wants">想看清单</el-dropdown-item>
+                  <el-dropdown-item v-if="auth.role === 'USER'" command="/me/notifications">消息通知</el-dropdown-item>
                   <el-dropdown-item divided command="logout">
                     <el-icon><SwitchButton /></el-icon>
                     退出登录

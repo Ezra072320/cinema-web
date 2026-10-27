@@ -7,11 +7,57 @@ import { useTablePage } from '@/composables/useTablePage';
 import { confirmAction } from '@/composables/useConfirm';
 import { timeParts } from '@/utils/datetime';
 import { USER_STATUS, type Admin } from '@/types';
+import { accessApi, type AdminRole } from '@/api/access';
+import { useAuthStore } from '@/stores/auth';
+const auth = useAuthStore();
+const roles = ref<AdminRole[]>([]);
+const roleDescriptions: Record<string, string> = {
+  OWNER: '管理全部业务、账号授权与流量规则',
+  OPERATOR: '管理影片、影厅、排片、优惠券和用户，查询订单',
+  FINANCE: '查询订单、营收报表与导出',
+  VIEWER: '只读查看概览、影片、影厅、排片和优惠券',
+};
+const assignments = ref<Record<string, string[]>>({});
+const roleTarget = ref<Admin | null>(null);
+const selectedRoles = ref<string[]>([]);
+const roleSaving = ref(false);
+function roleName(code: string) {
+  return roles.value.find((r) => r.code === code)?.name ?? code;
+}
+function openRoles(admin: Admin) {
+  roleTarget.value = admin;
+  selectedRoles.value = [...(assignments.value[String(admin.id)] ?? [])];
+}
+async function saveRoles() {
+  if (!roleTarget.value || !selectedRoles.value.length || roleSaving.value) return;
+  roleSaving.value = true;
+  try {
+    await accessApi.assign(roleTarget.value.id, selectedRoles.value);
+    ElMessage.success('角色已更新，下次请求即生效');
+    roleTarget.value = null;
+    await load();
+  } catch {
+    /* HTTP interceptor displays the failure. */
+  } finally {
+    roleSaving.value = false;
+  }
+}
 
 const filter = reactive({ name: '' });
 
-const { list, total, loading, page, limit, load, search } = useTablePage<Admin>((page, limit) =>
-  adminApi.listAdmins({ page, limit, name: filter.name || undefined }),
+const { list, total, loading, page, limit, load, search } = useTablePage<Admin>(
+  async (page, limit) => {
+    const result = await adminApi.listAdmins({ page, limit, name: filter.name || undefined });
+    const [definitions, assigned] = await Promise.all([
+      accessApi.roles(),
+      result.rows.length
+        ? accessApi.assignments(result.rows.map((a) => a.id))
+        : Promise.resolve({}),
+    ]);
+    roles.value = definitions;
+    assignments.value = assigned;
+    return result;
+  },
 );
 
 const dialogVisible = ref(false);
@@ -81,11 +127,10 @@ async function toggleStatus(a: Admin) {
 }
 
 async function remove(a: Admin) {
-  const ok = await confirmAction(
-    `确认删除管理员「${a.name}」?`,
-    '删除',
-    { type: 'error', confirmButtonText: '确认删除' },
-  );
+  const ok = await confirmAction(`确认删除管理员「${a.name}」?`, '删除', {
+    type: 'error',
+    confirmButtonText: '确认删除',
+  });
   if (!ok) return;
   try {
     await adminApi.deleteAdmin(a.id);
@@ -128,12 +173,25 @@ async function remove(a: Admin) {
           <template #default="{ row }">
             <div class="user-cell">
               <!-- 管理员一般没头像, 首字圆标是常态显示; pic 有值就用 -->
-              <el-avatar :size="36" :src="row.pic || undefined">{{ row.name?.charAt(0) }}</el-avatar>
+              <el-avatar :size="36" :src="row.pic || undefined">{{
+                row.name?.charAt(0)
+              }}</el-avatar>
               <div class="user-meta">
                 <span class="user-name">{{ row.name }}</span>
                 <span class="user-id">#{{ row.id }}</span>
               </div>
             </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="角色" min-width="160">
+          <template #default="{ row }">
+            <el-tag
+              v-for="code in assignments[String(row.id)] ?? []"
+              :key="code"
+              size="small"
+              class="role-tag"
+              >{{ roleName(code) }}</el-tag
+            >
           </template>
         </el-table-column>
         <el-table-column label="年龄" width="80">
@@ -153,12 +211,17 @@ async function remove(a: Admin) {
         <el-table-column label="状态" width="110">
           <template #default="{ row }">
             <span class="status-pill" :class="Number(row.status) === 1 ? 'is-normal' : 'is-off'">
-              <i class="dot" />{{ Number(row.status) === 1 ? USER_STATUS.NORMAL : USER_STATUS.DISABLED }}
+              <i class="dot" />{{
+                Number(row.status) === 1 ? USER_STATUS.NORMAL : USER_STATUS.DISABLED
+              }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
+            <el-button size="small" :disabled="row.id === auth.profile?.id" @click="openRoles(row)"
+              >角色</el-button
+            >
             <el-button
               size="small"
               :type="Number(row.status) === 1 ? 'warning' : 'success'"
@@ -193,17 +256,52 @@ async function remove(a: Admin) {
           <el-input v-model="form.name" placeholder="登录账号" maxlength="16" />
         </el-form-item>
         <el-form-item label="密码" prop="password" required>
-          <el-input v-model="form.password" type="password" show-password placeholder="6~16 位登录密码" />
+          <el-input
+            v-model="form.password"
+            type="password"
+            show-password
+            placeholder="6~16 位登录密码"
+          />
         </el-form-item>
         <el-form-item label="年龄">
           <el-input-number v-model="form.age" :min="1" :max="120" />
         </el-form-item>
-        <p class="hint">新增后可用该账号在管理端登录. 停用的管理员无法登录, 但历史操作记录保留.</p>
+        <p class="hint">新账号默认为只读人员。创建后可通过「角色」调整职责；停用账号无法登录。</p>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="save">确认</el-button>
       </template>
+    </el-dialog>
+    <el-dialog
+      :model-value="roleTarget !== null"
+      title="设置管理员角色"
+      width="min(520px, 92vw)"
+      align-center
+      @close="roleTarget = null"
+    >
+      <p>账号：{{ roleTarget?.name }}</p>
+      <el-checkbox-group v-model="selectedRoles" class="role-options">
+        <el-checkbox v-for="r in roles" :key="r.code" :value="r.code">{{ r.name }}</el-checkbox>
+      </el-checkbox-group>
+      <p class="hint">
+        多个角色合并权限。变更会立即影响后续请求；不能调整自身角色，系统至少保留一位启用的超级管理员。
+      </p>
+      <ul class="role-abilities">
+        <li v-for="r in roles.filter((r) => selectedRoles.includes(r.code))" :key="r.code">
+          {{ r.name }}：{{ roleDescriptions[r.code] ?? `${r.permissions.length} 项权限` }}
+        </li>
+      </ul>
+      <template #footer
+        ><el-button @click="roleTarget = null">取消</el-button
+        ><el-button
+          type="primary"
+          :disabled="!selectedRoles.length"
+          :loading="roleSaving"
+          @click="saveRoles"
+          >保存角色</el-button
+        ></template
+      >
     </el-dialog>
   </div>
 </template>
@@ -269,5 +367,19 @@ async function remove(a: Admin) {
 
 .pager {
   margin-top: var(--cx-space-4);
+}
+.role-tag {
+  margin: 3px;
+}
+.role-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+.role-abilities {
+  color: var(--cx-text-muted);
+  font-size: 13px;
+  line-height: 1.8;
 }
 </style>

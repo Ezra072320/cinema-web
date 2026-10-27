@@ -6,6 +6,8 @@ import { Delete, Edit } from '@element-plus/icons-vue';
 import { hallApi } from '@/api';
 import { confirmAction } from '@/composables/useConfirm';
 import { HALL_TYPE_LABEL, hallTypeLabel, type Hall } from '@/types';
+import { useAuthStore } from '@/stores/auth';
+const auth = useAuthStore();
 
 const router = useRouter();
 
@@ -113,7 +115,9 @@ onMounted(load);
           <template v-if="mappedCount"> · {{ mappedCount }} 个已配置座位图</template>
         </p>
       </div>
-      <el-button type="primary" round @click="openAdd">+ 新增影厅</el-button>
+      <el-button v-if="auth.can('venue:write')" type="primary" round @click="openAdd"
+        >+ 新增影厅</el-button
+      >
     </header>
 
     <el-card class="grid-card cx-glass" v-loading="loading">
@@ -148,18 +152,25 @@ onMounted(load);
             </div>
             <!-- capacity = 0 表示座位图还没画/发布, 不要显示成"0 座"让人以为是坏数据 -->
             <div v-if="h.capacity > 0" class="capacity">
-              <span class="num">{{ h.capacity }}</span><span class="unit">座</span>
+              <span class="num">{{ h.capacity }}</span
+              ><span class="unit">座</span>
             </div>
             <div v-else class="warn">未画座位图</div>
           </div>
 
           <div class="hall-actions">
             <!-- 主操作: 座位图是这个页面最常去的地方 -->
-            <el-button size="small" type="primary" plain @click="openSeatEditor(h)">
+            <el-button
+              v-if="auth.can('venue:write')"
+              size="small"
+              type="primary"
+              plain
+              @click="openSeatEditor(h)"
+            >
               座位图
             </el-button>
             <el-button size="small" plain @click="openHallInfo(h)">预览</el-button>
-            <span class="actions-end">
+            <span v-if="auth.can('venue:write')" class="actions-end">
               <el-button size="small" text :icon="Edit" @click="openEdit(h)">编辑</el-button>
               <el-button size="small" text type="danger" :icon="Delete" @click="remove(h)">
                 删除
@@ -170,7 +181,9 @@ onMounted(load);
       </div>
       <EmptyState v-else title="还没有影厅" hint="新建影厅后即可绘制座位图并排片">
         <template #actions>
-          <el-button type="primary" round @click="openAdd">+ 新增影厅</el-button>
+          <el-button v-if="auth.can('venue:write')" type="primary" round @click="openAdd"
+            >+ 新增影厅</el-button
+          >
         </template>
       </EmptyState>
     </el-card>
@@ -204,8 +217,8 @@ onMounted(load);
         </el-form-item>
         <el-form-item label="座位详情" v-if="form.seats?.length">
           <span class="muted">
-            已配置 {{ form.seats.length }} 个座位. 座位布局请在「座位图」页编辑
-            —— 它走草稿/发布流程, 改动前要确认该厅没有未放映的场次.
+            已配置 {{ form.seats.length }} 个座位. 座位布局请在「座位图」页编辑 ——
+            它走草稿/发布流程, 改动前要确认该厅没有未放映的场次.
           </span>
         </el-form-item>
         <p class="hint">
@@ -314,12 +327,7 @@ onMounted(load);
   width: 68%;
   height: 4px;
   border-radius: 50%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--cx-color-primary),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, var(--cx-color-primary), transparent);
   opacity: 0.75;
   transition:
     opacity var(--cx-duration-base) var(--cx-ease),

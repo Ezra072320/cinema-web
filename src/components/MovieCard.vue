@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Movie } from '@/types';
+import { searchHighlight } from '@/utils/searchHighlight';
 import {
   boxOfficeOf,
   genresOf,
@@ -26,6 +27,7 @@ import {
 const props = withDefaults(
   defineProps<{
     movie: Movie;
+    titleHighlight?: string;
     variant?: 'default' | 'rank';
     rank?: number;
     showScore?: boolean;
@@ -36,6 +38,7 @@ const props = withDefaults(
 defineEmits<{ (e: 'click'): void }>();
 
 const poster = computed(() => posterOf(props.movie));
+const safeTitleHighlight = computed(() => searchHighlight(props.titleHighlight));
 const genres = computed(() => genresOf(props.movie, 2));
 const rating = computed(() => ratingOf(props.movie));
 const runtime = computed(() => runtimeText(props.movie));
@@ -56,12 +59,21 @@ const statusLabel = computed(() => statusText(props.movie));
   >
     <div class="poster-wrap">
       <!-- 海报 + 失败占位在 PosterImage(懒加载/首字占位内置) -->
-      <PosterImage :src="poster" :alt="movie.title" :initial="movie.title?.charAt(0)" :sub="genres[0]" />
+      <PosterImage
+        :src="poster"
+        :alt="movie.title"
+        :initial="movie.title?.charAt(0)"
+        :sub="genres[0]"
+      />
 
       <span v-if="showScore && rating" class="badge badge--score">
         {{ rating.toFixed(1) }}
       </span>
-      <span v-if="variant === 'rank' && rank" class="badge badge--rank" :class="`badge--rank-${rank}`">
+      <span
+        v-if="variant === 'rank' && rank"
+        class="badge badge--rank"
+        :class="`badge--rank-${rank}`"
+      >
         {{ rank }}
       </span>
       <span v-else-if="variant === 'default'" class="badge badge--status">
@@ -76,7 +88,11 @@ const statusLabel = computed(() => statusText(props.movie));
     </div>
 
     <div class="info">
-      <h3 class="title" :title="movie.title">{{ movie.title }}</h3>
+      <h3 class="title" :title="movie.title">
+        <span v-if="safeTitleHighlight" v-html="safeTitleHighlight" /><template v-else>{{
+          movie.title
+        }}</template>
+      </h3>
 
       <div class="meta">
         <template v-if="variant === 'rank'">
@@ -159,9 +175,17 @@ const statusLabel = computed(() => statusText(props.movie));
     background: var(--cx-color-accent);
     color: #fff;
   }
-  &--rank-1 { background: var(--cx-gold); color: #1a1f2e; }
-  &--rank-2 { background: var(--cx-rank-silver); color: #1a1f2e; }
-  &--rank-3 { background: var(--cx-rank-bronze); }
+  &--rank-1 {
+    background: var(--cx-gold);
+    color: #1a1f2e;
+  }
+  &--rank-2 {
+    background: var(--cx-rank-silver);
+    color: #1a1f2e;
+  }
+  &--rank-3 {
+    background: var(--cx-rank-bronze);
+  }
 }
 
 /* 悬停浮层 */
@@ -175,7 +199,9 @@ const statusLabel = computed(() => statusText(props.movie));
   background: linear-gradient(180deg, transparent, rgba(10, 12, 18, 0.92));
   opacity: 0;
   transform: translateY(8px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
   pointer-events: none;
 
   .overlay-summary {
@@ -240,7 +266,9 @@ const statusLabel = computed(() => statusText(props.movie));
   font-weight: 700;
 }
 
-.dot { opacity: 0.5; }
+.dot {
+  opacity: 0.5;
+}
 
 /* ===== 票房榜横向条目 ===== */
 .movie-card--rank {
@@ -252,7 +280,9 @@ const statusLabel = computed(() => statusText(props.movie));
   background: var(--cx-bg-elevated);
   border: 1px solid var(--cx-border);
 
-  &:hover { transform: translateX(4px); }
+  &:hover {
+    transform: translateX(4px);
+  }
 
   .poster-wrap {
     width: 56px;
@@ -260,13 +290,25 @@ const statusLabel = computed(() => statusText(props.movie));
     aspect-ratio: 2 / 3;
     border-radius: var(--cx-radius-sm);
   }
-  .overlay { display: none; }
-  .badge--rank { font-size: 11px; padding: 1px 6px; }
-  .title { font-size: 14px; }
-  .info { gap: 2px; min-width: 0; }
+  .overlay {
+    display: none;
+  }
+  .badge--rank {
+    font-size: 11px;
+    padding: 1px 6px;
+  }
+  .title {
+    font-size: 14px;
+  }
+  .info {
+    gap: 2px;
+    min-width: 0;
+  }
 }
 
 @media (max-width: 640px) {
-  .overlay { display: none; }
+  .overlay {
+    display: none;
+  }
 }
 </style>

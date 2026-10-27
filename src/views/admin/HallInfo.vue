@@ -1,16 +1,13 @@
 <script setup lang="ts">
+import { useAuthStore } from '@/stores/auth';
+const auth = useAuthStore();
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { hallApi } from '@/api';
 import SeatLegend from '@/components/SeatLegend.vue';
 import { useSeatGrid, type GridSeat } from '@/composables/useSeatGrid';
-import {
-  hallTypeLabel as hallTypeText,
-  seatTypeLabel,
-  seatVisualType,
-  type Hall,
-} from '@/types';
+import { hallTypeLabel as hallTypeText, seatTypeLabel, seatVisualType, type Hall } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
@@ -47,7 +44,10 @@ const gridSeats = computed<GridSeatRow[]>(() =>
 
 /** 情侣对几何 + 座位编号, 与选座页共用同一份实现. */
 const { seatAt, isCouple, isRightHalf, cellStyle, rowLabelStyle, rowNos, seatNumber } =
-  useSeatGrid<GridSeatRow>(gridSeats, computed(() => hall.value?.coupleGroups));
+  useSeatGrid<GridSeatRow>(
+    gridSeats,
+    computed(() => hall.value?.coupleGroups),
+  );
 
 /**
  * 要渲染哪些排 —— **按实际座位重新编号后的排号**.
@@ -122,8 +122,7 @@ onMounted(load);
       <div>
         <h1 class="title">{{ hall?.name ?? '影厅详情' }}</h1>
         <p class="subtitle" v-if="hall">
-          {{ hallTypeLabel() }} ·
-          {{ hall.capacity > 0 ? `${hall.capacity} 座` : '未画座位图' }} ·
+          {{ hallTypeLabel() }} · {{ hall.capacity > 0 ? `${hall.capacity} 座` : '未画座位图' }} ·
           当前版本共 {{ hall.seats?.length ?? 0 }} 个座位
         </p>
       </div>
@@ -131,6 +130,7 @@ onMounted(load);
         <!-- 回列表用明确路由而不是 router.back(): 直接打开这个地址时没有历史可退 -->
         <el-button @click="router.push({ name: 'admin-halls' })">返回影厅列表</el-button>
         <el-button
+          v-if="auth.can('venue:write')"
           type="primary"
           @click="router.push({ name: 'admin-hall-seats', params: { id: hallId } })"
         >

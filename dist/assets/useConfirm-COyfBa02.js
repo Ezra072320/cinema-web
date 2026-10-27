@@ -1,0 +1,1 @@
+import{Q as c}from"./vendor-element-Csq-auoo.js";async function a(n,e="操作确认",t={}){return await c.confirm(n,e,{type:t.type??"warning",confirmButtonText:t.confirmButtonText??"确定",cancelButtonText:t.cancelButtonText??"取消"}).then(()=>!0).catch(()=>!1)}export{a as c};

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
-import { EditPen, Star, SwitchButton, Tickets, User } from '@element-plus/icons-vue';
+import { Bell, EditPen, Star, SwitchButton, Tickets, User } from '@element-plus/icons-vue';
 import { orderApi } from '@/api';
 import { useAuth } from '@/composables/useAuth';
 import { isAccountNormal, joinText, totalOrderCount } from '@/utils/user';
@@ -33,9 +33,30 @@ const unpaidCount = computed(() => Number(counts.value['1'] || 0));
 const menus = computed(() => [
   { idx: 'info', label: '我的资料', desc: '头像、昵称、年龄', icon: User, to: '/me/info' },
   // badge 显示待支付数, 对应订单状态 1; 跳转落在「全部」tab(5)
-  { idx: 'orders', label: '我的订单', desc: '查看全部购票记录', icon: Tickets, to: '/me/orders/5', badge: unpaidCount.value },
+  {
+    idx: 'orders',
+    label: '我的订单',
+    desc: '查看全部购票记录',
+    icon: Tickets,
+    to: '/me/orders/5',
+    badge: unpaidCount.value,
+  },
   { idx: 'wants', label: '想看清单', desc: '关注的待映影片', icon: Star, to: '/me/wants' },
-  { idx: 'reviews', label: '我的评价', desc: '查看与管理观影短评', icon: EditPen, to: '/me/reviews' },
+  {
+    idx: 'reviews',
+    label: '我的评价',
+    desc: '查看与管理观影短评',
+    icon: EditPen,
+    to: '/me/reviews',
+  },
+  { idx: 'coupons', label: '我的优惠券', desc: '领券与观影抵扣', icon: Tickets, to: '/me/coupons' },
+  {
+    idx: 'notifications',
+    label: '消息通知',
+    desc: '订单与售后办理结果',
+    icon: Bell,
+    to: '/me/notifications',
+  },
 ]);
 
 const activeMenu = computed(() => {
@@ -44,6 +65,8 @@ const activeMenu = computed(() => {
   if (name === 'me-orders') return 'orders';
   if (name === 'me-wants') return 'wants';
   if (name === 'me-reviews') return 'reviews';
+  if (name === 'me-coupons') return 'coupons';
+  if (name === 'me-notifications') return 'notifications';
   return 'info';
 });
 
@@ -60,11 +83,7 @@ function goEdit() {
         <div class="profile-cover" aria-hidden="true" />
         <div class="profile-body">
           <div class="avatar-wrap">
-            <el-avatar
-              :size="84"
-              :src="profile?.pic"
-              class="avatar"
-            >
+            <el-avatar :size="84" :src="profile?.pic" class="avatar">
               {{ profile?.name?.charAt(0) ?? '?' }}
             </el-avatar>
             <span class="status-dot" :class="isAccountNormal(profile?.status) ? 'on' : 'off'" />
@@ -136,13 +155,14 @@ function goEdit() {
 <style scoped lang="scss">
 .me-wrap {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: var(--cx-space-6);
   padding-top: var(--cx-space-6);
   align-items: start;
 }
 
 .sidebar {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: var(--cx-space-4);
@@ -163,8 +183,16 @@ function goEdit() {
 .profile-cover {
   height: 84px;
   background:
-    radial-gradient(circle at 18% 30%, color-mix(in srgb, var(--cx-color-primary) 55%, transparent) 0%, transparent 55%),
-    radial-gradient(circle at 80% 70%, color-mix(in srgb, var(--cx-color-accent) 55%, transparent) 0%, transparent 60%),
+    radial-gradient(
+      circle at 18% 30%,
+      color-mix(in srgb, var(--cx-color-primary) 55%, transparent) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 80% 70%,
+      color-mix(in srgb, var(--cx-color-accent) 55%, transparent) 0%,
+      transparent 60%
+    ),
     linear-gradient(135deg, #1a1208 0%, #1a1f2e 60%, #26121e 100%);
 }
 
@@ -200,8 +228,13 @@ function goEdit() {
   border: 2px solid var(--cx-bg-base);
   background: var(--cx-text-muted);
 
-  &.on { background: var(--cx-success); box-shadow: 0 0 8px color-mix(in srgb, var(--cx-success) 60%, transparent); }
-  &.off { background: var(--cx-text-muted); }
+  &.on {
+    background: var(--cx-success);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--cx-success) 60%, transparent);
+  }
+  &.off {
+    background: var(--cx-text-muted);
+  }
 }
 
 .profile-name {
@@ -264,7 +297,9 @@ function goEdit() {
   align-items: center;
   gap: 2px;
 
-  &.alert .stat-num { color: var(--cx-warning); }
+  &.alert .stat-num {
+    color: var(--cx-warning);
+  }
 }
 
 .stat-num {
@@ -322,7 +357,11 @@ function goEdit() {
   }
 
   &.active {
-    background: linear-gradient(135deg, color-mix(in srgb, var(--cx-color-primary) 16%, transparent), color-mix(in srgb, var(--cx-color-accent) 10%, transparent));
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--cx-color-primary) 16%, transparent),
+      color-mix(in srgb, var(--cx-color-accent) 10%, transparent)
+    );
     color: var(--cx-text-primary);
 
     .nav-icon {
@@ -330,8 +369,12 @@ function goEdit() {
       color: var(--cx-color-primary-contrast);
       box-shadow: 0 4px 12px color-mix(in srgb, var(--cx-color-primary) 35%, transparent);
     }
-    .nav-label { color: var(--cx-text-primary); }
-    .nav-arrow { color: var(--cx-color-primary); }
+    .nav-label {
+      color: var(--cx-text-primary);
+    }
+    .nav-arrow {
+      color: var(--cx-color-primary);
+    }
   }
 }
 
@@ -392,7 +435,9 @@ function goEdit() {
   transition: transform var(--cx-duration-fast) var(--cx-ease);
 }
 
-.nav-item:hover .nav-arrow { transform: translateX(2px); }
+.nav-item:hover .nav-arrow {
+  transform: translateX(2px);
+}
 
 /* ===== 退出 ===== */
 .logout {
@@ -433,7 +478,7 @@ function goEdit() {
 /* ===== 响应式 ===== */
 @media (max-width: 960px) {
   .me-wrap {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .sidebar {
     position: static;

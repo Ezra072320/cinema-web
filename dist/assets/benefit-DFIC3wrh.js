@@ -1,0 +1,1 @@
+import{e}from"./index-ydrp6wM7.js";const i={templates:()=>e.get("/benefit/templates"),coupons:()=>e.get("/benefit/coupons",{quiet:!0}),claim:t=>e.post(`/benefit/templates/${t}/claim`,{}),adminTemplates:()=>e.get("/admin/benefit/templates"),create:t=>e.post("/admin/benefit/templates",t)};export{i as b};

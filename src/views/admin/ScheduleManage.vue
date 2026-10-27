@@ -7,6 +7,8 @@ import { confirmAction } from '@/composables/useConfirm';
 import type { Hall, Movie, Schedule } from '@/types';
 import ScheduleBatchDialog from './ScheduleBatchDialog.vue';
 import ScheduleTimeline from './ScheduleTimeline.vue';
+import { useAuthStore } from '@/stores/auth';
+const auth = useAuthStore();
 
 const filter = reactive({
   date: '',
@@ -81,7 +83,7 @@ const batchVisible = ref(false);
 /** 时间轴点空白处带过来的预填(影厅/日期/时间). */
 const batchPrefill = ref<{ hallId?: number; date?: string; time?: string } | undefined>(undefined);
 /** 视图: 时间轴(默认) / 列表. */
-const view = ref<'timeline' | 'list'>('timeline');
+const view = ref<'timeline' | 'list'>(auth.can('schedule:write') ? 'timeline' : 'list');
 const timelineRef = ref<InstanceType<typeof ScheduleTimeline>>();
 
 function onTimelineCreate(prefill: { hallId: number; date: string; time: string }) {
@@ -174,7 +176,8 @@ function statusOf(s: Schedule): { label: string; type: 'danger' | 'info' | 'succ
   }
   return { label: '待放映', type: 'success' };
 }
-const started = (s: Schedule) => !!s.startTime && new Date(s.startTime.replace(/-/g, '/')).getTime() <= Date.now();
+const started = (s: Schedule) =>
+  !!s.startTime && new Date(s.startTime.replace(/-/g, '/')).getTime() <= Date.now();
 
 function hallName(id: number) {
   return halls.value.find((h) => h.id === id)?.name ?? `#${id}`;
@@ -194,21 +197,41 @@ onMounted(() => {
     <header class="header">
       <div>
         <h1 class="title">排片管理</h1>
-        <p class="subtitle">拖动色块改开场时间，点击空白快速排片</p>
+        <p class="subtitle">
+          {{
+            auth.can('schedule:write') ? '拖动色块改开场时间，点击空白快速排片' : '查看影院排片安排'
+          }}
+        </p>
       </div>
       <div class="header-actions">
-        <el-radio-group v-model="view" size="default">
+        <el-radio-group v-if="auth.can('schedule:write')" v-model="view" size="default">
           <el-radio-button value="timeline">时间轴</el-radio-button>
           <el-radio-button value="list">列表</el-radio-button>
         </el-radio-group>
-        <el-button type="primary" round @click="batchPrefill = undefined; batchVisible = true">+ 批量排片</el-button>
+        <el-button
+          v-if="auth.can('schedule:write')"
+          type="primary"
+          round
+          @click="
+            batchPrefill = undefined;
+            batchVisible = true;
+          "
+          >+ 批量排片</el-button
+        >
       </div>
     </header>
 
     <!-- ===== 时间轴视图: 单日 · 影厅行甘特 ===== -->
     <template v-if="view === 'timeline'">
       <div class="filters cx-glass">
-        <el-date-picker v-model="filter.date" type="date" value-format="YYYY-MM-DD" placeholder="日期（默认今天）" style="width: 180px" clearable />
+        <el-date-picker
+          v-model="filter.date"
+          type="date"
+          value-format="YYYY-MM-DD"
+          placeholder="日期（默认今天）"
+          style="width: 180px"
+          clearable
+        />
         <span class="tl-tip">横轴 00:00–24:00；色块宽 = 片长 + 30 分钟清场</span>
       </div>
       <ScheduleTimeline
@@ -223,14 +246,42 @@ onMounted(() => {
 
     <!-- ===== 列表视图 ===== -->
     <div v-if="view === 'list'" class="filters cx-glass">
-      <el-date-picker v-model="filter.date" type="date" value-format="YYYY-MM-DD" placeholder="日期" style="width: 160px" @change="search" />
-      <el-select v-model="filter.hallId" placeholder="影厅" clearable style="width: 160px" @change="search">
+      <el-date-picker
+        v-model="filter.date"
+        type="date"
+        value-format="YYYY-MM-DD"
+        placeholder="日期"
+        style="width: 160px"
+        @change="search"
+      />
+      <el-select
+        v-model="filter.hallId"
+        placeholder="影厅"
+        clearable
+        style="width: 160px"
+        @change="search"
+      >
         <el-option v-for="h in halls" :key="h.id" :value="h.id" :label="h.name" />
       </el-select>
-      <el-select v-model="filter.movieId" placeholder="搜索热映影片" clearable filterable remote :remote-method="searchMovies" style="width: 200px" @change="search">
+      <el-select
+        v-model="filter.movieId"
+        placeholder="搜索热映影片"
+        clearable
+        filterable
+        remote
+        :remote-method="searchMovies"
+        style="width: 200px"
+        @change="search"
+      >
         <el-option v-for="m in movies" :key="m.id" :value="m.id" :label="m.title" />
       </el-select>
-      <el-select v-model="filter.status" placeholder="全部状态" clearable style="width: 140px" @change="search">
+      <el-select
+        v-model="filter.status"
+        placeholder="全部状态"
+        clearable
+        style="width: 140px"
+        @change="search"
+      >
         <el-option :value="1" label="正常" />
         <el-option :value="2" label="已取消" />
       </el-select>
@@ -261,11 +312,24 @@ onMounted(() => {
             <el-tag :type="statusOf(row).type" size="small">{{ statusOf(row).label }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="230" fixed="right">
+        <el-table-column v-if="auth.can('schedule:write')" label="操作" width="230" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" :disabled="Number(row.status) === 2 || started(row)" @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" type="warning" :disabled="Number(row.status) === 2" @click="cancel(row)">取消场次</el-button>
-            <el-button size="small" type="danger" :disabled="started(row)" @click="remove(row)">删除</el-button>
+            <el-button
+              size="small"
+              :disabled="Number(row.status) === 2 || started(row)"
+              @click="openEdit(row)"
+              >编辑</el-button
+            >
+            <el-button
+              size="small"
+              type="warning"
+              :disabled="Number(row.status) === 2"
+              @click="cancel(row)"
+              >取消场次</el-button
+            >
+            <el-button size="small" type="danger" :disabled="started(row)" @click="remove(row)"
+              >删除</el-button
+            >
           </template>
         </el-table-column>
       </el-table>
@@ -283,7 +347,13 @@ onMounted(() => {
     <el-dialog v-model="dialogVisible" title="编辑排片" width="min(460px, 92vw)">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="影片" prop="movieId" required>
-          <el-select v-model="form.movieId" filterable remote :remote-method="searchMovies" placeholder="搜索大陆热映影片">
+          <el-select
+            v-model="form.movieId"
+            filterable
+            remote
+            :remote-method="searchMovies"
+            placeholder="搜索大陆热映影片"
+          >
             <el-option v-for="m in movies" :key="m.id" :value="m.id" :label="m.title" />
           </el-select>
         </el-form-item>

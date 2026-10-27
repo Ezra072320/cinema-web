@@ -65,11 +65,12 @@ type UserListParams = AdminListParams;
 /**
  * 下单请求体.
  *
- * ⚠️ **不要带 userId**. 后端 `OrderAddDTO` 只认 scheduleId + ticketIds,
+ * ⚠️ **不要带 userId**. 后端 `OrderAddDTO` 接收 scheduleId、ticketIds 与可选 couponId,
  * 用户身份一律从 token 里取(SecurityUtils.requireUserId) —— 客户端传 userId
  * 既会被 Jackson 判为未知字段直接 400, 也是个越权隐患.
  */
 interface CreateOrderForm {
+  couponId?: number;
   scheduleId: number;
   ticketIds: number[];
 }
@@ -393,6 +394,8 @@ export const orderApi = {
 // ===== 营收 / 统计 =====
 
 export const statApi = {
+  exportRevenue: (params: { startDate: string; endDate: string; granularity: 'day' | 'week' | 'month' }) =>
+    http.get<Blob>('/statistic/revenue/export', { params, responseType: 'blob' }),
   overview: () => http.get<import('@/types').OverviewStat>('/statistic/getAll'),
   revenue: (params: {
     startDate: string;

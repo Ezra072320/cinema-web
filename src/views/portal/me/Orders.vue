@@ -66,6 +66,7 @@ function goScore(o: OrderInfo) {
 
 interface StatusView { label: string; tone: 'success' | 'warning' | 'danger' | 'info' | 'mute'; }
 function statusInfo(o: OrderInfo): StatusView {
+  if (o.transactionState === 'PROCESSING') return { label: '订单确认中', tone: 'warning' };
   const s = Number(o.status);
   const label = ORDER_STATUS_NUM[s] ?? '未知';
   if (s === 2 || s === 6) return { label, tone: 'success' };
@@ -163,10 +164,11 @@ onMounted(load);
         </div>
 
         <div class="actions">
-          <el-button v-if="Number(o.status) === 1" type="primary" @click="goPay(o)">去支付</el-button>
+          <el-button v-if="Number(o.status) === 1" type="primary" :disabled="o.transactionState === 'PROCESSING'" @click="goPay(o)">去支付</el-button>
           <el-button
             v-if="Number(o.status) === 1"
             :loading="cancelling.has(o.id)"
+            :disabled="o.transactionState === 'PROCESSING'"
             @click="cancelOrder(o)"
           >
             取消

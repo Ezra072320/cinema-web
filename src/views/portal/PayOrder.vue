@@ -25,6 +25,8 @@ const TIMEOUT_MS = 15 * 60 * 1000;
 /** 从订单 createTime 推算剩余毫秒; 到点后跳走, 不能再付. */
 const remaining = ref(0);
 let timer: number | undefined;
+let decisionTimer: number | undefined;
+let disposed = false;
 
 function startCountdown() {
   stopCountdown();
@@ -84,6 +86,9 @@ async function load() {
       return;
     }
     order.value = data;
+    if (data.transactionState === 'PROCESSING' && !disposed) {
+      decisionTimer = window.setTimeout(load, 2000);
+    }
     startCountdown();
   } catch (err) {
     ElMessage.error((err as { msg?: string })?.msg ?? '订单加载失败');
@@ -109,11 +114,10 @@ async function pay() {
 
 async function cancelOrder() {
   if (!order.value) return;
-  const ok = await confirmAction(
-    '确定取消该订单？取消后座位将释放，无法恢复。',
-    '取消订单',
-    { confirmButtonText: '确认取消', cancelButtonText: '再想想' },
-  );
+  const ok = await confirmAction('确定取消该订单？取消后座位将释放，无法恢复。', '取消订单', {
+    confirmButtonText: '确认取消',
+    cancelButtonText: '再想想',
+  });
   if (!ok) return;
   cancelling.value = true;
   try {
@@ -129,7 +133,11 @@ async function cancelOrder() {
 }
 
 onMounted(load);
-onBeforeUnmount(stopCountdown);
+onBeforeUnmount(() => {
+  disposed = true;
+  stopCountdown();
+  if (decisionTimer) window.clearTimeout(decisionTimer);
+});
 </script>
 
 <template>
@@ -141,13 +149,25 @@ onBeforeUnmount(stopCountdown);
         <h1 class="title">支付订单</h1>
         <p class="order-no">订单号：{{ order.number }}</p>
       </header>
+      <el-alert
+        v-if="order.transactionState === 'PROCESSING'"
+        title="订单正在确认中，将自动刷新，请稍候"
+        type="info"
+        :closable="false"
+      />
 
-      <div v-if="remaining > 0" class="countdown-bar">订单将在 <strong>{{ formatTime(remaining) }}</strong> 后自动关闭，请尽快完成支付</div>
+      <div v-if="remaining > 0" class="countdown-bar">
+        订单将在 <strong>{{ formatTime(remaining) }}</strong> 后自动关闭，请尽快完成支付
+      </div>
 
       <el-card class="movie-card cx-glass">
         <div class="row">
           <div class="poster">
-            <PosterImage :src="order.poster" :alt="order.movieName || '影片海报'" :initial="order.movieName?.charAt(0)" />
+            <PosterImage
+              :src="order.poster"
+              :alt="order.movieName || '影片海报'"
+              :initial="order.movieName?.charAt(0)"
+            />
           </div>
           <div class="info">
             <h3 class="movie">{{ order.movieName }}</h3>
@@ -156,6 +176,11 @@ onBeforeUnmount(stopCountdown);
           </div>
           <div class="amount">
             <div class="label">应付金额</div>
+            <small v-if="order.discountAmount"
+              >原价 ¥{{ Number(order.originalAmount).toFixed(2) }} · 优惠 ¥{{
+                Number(order.discountAmount).toFixed(2)
+              }}</small
+            >
             <div class="num">¥{{ order.totalAmount.toFixed(2) }}</div>
           </div>
         </div>
@@ -164,14 +189,37 @@ onBeforeUnmount(stopCountdown);
       <el-card class="channel-card cx-glass">
         <h4 class="sub-title">支付方式</h4>
         <el-radio-group v-model="channel" class="channel-group">
-          <el-radio-button v-for="(label, key) in PAY_CHANNEL" :key="key" :value="key">{{ label }}</el-radio-button>
+          <el-radio-button v-for="(label, key) in PAY_CHANNEL" :key="key" :value="key">{{
+            label
+          }}</el-radio-button>
         </el-radio-group>
-        <p class="channel-hint">本系统为演示环境，支付为模拟接口：选择支付方式并点击「立即支付」即视为完成支付</p>
+        <p class="channel-hint">
+          本系统为演示环境，支付为模拟接口：选择支付方式并点击「立即支付」即视为完成支付
+        </p>
       </el-card>
 
       <div class="actions">
-        <el-button round size="large" :disabled="!profile || paying || cancelling" @click="cancelOrder">取消订单</el-button>
-        <el-button type="primary" round size="large" :disabled="!profile || paying || cancelling || remaining <= 0" :loading="paying" @click="pay">
+        <el-button
+          round
+          size="large"
+          :disabled="!profile || paying || cancelling || order.transactionState === 'PROCESSING'"
+          @click="cancelOrder"
+          >取消订单</el-button
+        >
+        <el-button
+          type="primary"
+          round
+          size="large"
+          :disabled="
+            !profile ||
+            paying ||
+            cancelling ||
+            remaining <= 0 ||
+            order.transactionState === 'PROCESSING'
+          "
+          :loading="paying"
+          @click="pay"
+        >
           立即支付 ¥{{ order.totalAmount.toFixed(2) }}
         </el-button>
       </div>
@@ -180,39 +228,120 @@ onBeforeUnmount(stopCountdown);
 </template>
 
 <style scoped lang="scss">
-.pay-wrap { padding: var(--cx-space-6) 0; }
-.pay { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--cx-space-4); }
-.header { display: flex; align-items: baseline; gap: var(--cx-space-3); flex-wrap: wrap; }
-.title { font-size: 22px; font-weight: 700; margin: 0; }
-.order-no { color: var(--cx-text-muted); font-size: 13px; margin: 0; }
+.pay-wrap {
+  padding: var(--cx-space-6) 0;
+}
+.pay {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cx-space-4);
+}
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cx-space-3);
+  flex-wrap: wrap;
+}
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+.order-no {
+  color: var(--cx-text-muted);
+  font-size: 13px;
+  margin: 0;
+}
 
 .countdown-bar {
-  background: linear-gradient(90deg, rgba(220,38,38,0.12), rgba(220,38,38,0.04));
-  border: 1px solid rgba(220,38,38,0.3);
+  background: linear-gradient(90deg, rgba(220, 38, 38, 0.12), rgba(220, 38, 38, 0.04));
+  border: 1px solid rgba(220, 38, 38, 0.3);
   color: #fca5a5;
   padding: 10px 16px;
   border-radius: var(--cx-radius-md);
   font-size: 14px;
-  strong { font-size: 18px; font-variant-numeric: tabular-nums; margin: 0 4px; }
+  strong {
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+    margin: 0 4px;
+  }
 }
 
-.movie-card .row { display: flex; gap: var(--cx-space-4); align-items: flex-start; }
-.poster { width: 80px; height: 120px; border-radius: var(--cx-radius-md); overflow: hidden; flex-shrink: 0; }
-.movie-card .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.movie { font-size: 18px; font-weight: 700; margin: 0; }
-.meta, .seats { color: var(--cx-text-secondary); font-size: 13px; margin: 0; }
-.movie-card .amount { text-align: right; }
-.movie-card .label { color: var(--cx-text-muted); font-size: 12px; }
-.movie-card .num { color: var(--cx-color-primary); font-size: 26px; font-weight: 700; }
+.movie-card .row {
+  display: flex;
+  gap: var(--cx-space-4);
+  align-items: flex-start;
+}
+.poster {
+  width: 80px;
+  height: 120px;
+  border-radius: var(--cx-radius-md);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.movie-card .info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.movie {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+.meta,
+.seats {
+  color: var(--cx-text-secondary);
+  font-size: 13px;
+  margin: 0;
+}
+.movie-card .amount {
+  text-align: right;
+}
+.movie-card .label {
+  color: var(--cx-text-muted);
+  font-size: 12px;
+}
+.movie-card .num {
+  color: var(--cx-color-primary);
+  font-size: 26px;
+  font-weight: 700;
+}
 
-.sub-title { margin: 0 0 var(--cx-space-3); font-size: 15px; font-weight: 600; }
-.channel-group { display: flex; gap: var(--cx-space-2); flex-wrap: wrap; }
-.channel-hint { color: var(--cx-text-muted); font-size: 12px; margin: var(--cx-space-3) 0 0; }
+.sub-title {
+  margin: 0 0 var(--cx-space-3);
+  font-size: 15px;
+  font-weight: 600;
+}
+.channel-group {
+  display: flex;
+  gap: var(--cx-space-2);
+  flex-wrap: wrap;
+}
+.channel-hint {
+  color: var(--cx-text-muted);
+  font-size: 12px;
+  margin: var(--cx-space-3) 0 0;
+}
 
-.actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--cx-space-3); }
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--cx-space-3);
+}
 
 @media (max-width: 560px) {
-  .movie-card .row { flex-wrap: wrap; }
-  .movie-card .amount { width: 100%; text-align: left; }
+  .movie-card .row {
+    flex-wrap: wrap;
+  }
+  .movie-card .amount {
+    width: 100%;
+    text-align: left;
+  }
 }
 </style>

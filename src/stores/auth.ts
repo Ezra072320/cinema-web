@@ -17,6 +17,38 @@ export const useAuthStore = defineStore(
     const token = ref<string>('');
     const role = ref<Role | null>(null);
     const profile = ref<UserProfile | null>(null);
+    const permissions = ref<string[]>([]);
+    const adminRoles = ref<string[]>([]);
+    const accessLoaded = ref(false);
+    let accessRequest: Promise<void> | undefined;
+
+    function can(permission: string) {
+      return role.value === 'ADMIN' && accessLoaded.value && permissions.value.includes(permission);
+    }
+
+    async function refreshAccess() {
+      if (role.value !== 'ADMIN' || !token.value) return;
+      if (accessRequest) return accessRequest;
+      const requestedToken = token.value;
+      accessRequest = (async () => {
+        try {
+          const { accessApi } = await import('@/api/access');
+          const access = await accessApi.mine();
+          if (token.value !== requestedToken) return;
+          permissions.value = access.permissions;
+          adminRoles.value = access.roles;
+          accessLoaded.value = true;
+        } catch (e) {
+          permissions.value = [];
+          adminRoles.value = [];
+          accessLoaded.value = false;
+          throw e;
+        } finally {
+          accessRequest = undefined;
+        }
+      })();
+      return accessRequest;
+    }
     /** 最近一次 bootstrap 时间(ms),用于 10s 内去重 */
     const lastFetchedAt = ref<number>(0);
 
@@ -24,6 +56,9 @@ export const useAuthStore = defineStore(
     const isAdmin = computed(() => role.value === 'ADMIN');
 
     function login(payload: { token: string; role: Role; profile?: UserProfile }) {
+      permissions.value = [];
+      adminRoles.value = [];
+      accessLoaded.value = false;
       token.value = payload.token;
       role.value = payload.role;
       if (payload.profile) profile.value = payload.profile;
@@ -44,12 +79,20 @@ export const useAuthStore = defineStore(
       role.value = null;
       profile.value = null;
       lastFetchedAt.value = 0;
+      permissions.value = [];
+      adminRoles.value = [];
+      accessLoaded.value = false;
     }
 
     return {
       token,
       role,
       profile,
+      permissions,
+      adminRoles,
+      accessLoaded,
+      can,
+      refreshAccess,
       lastFetchedAt,
       isLogin,
       isAdmin,

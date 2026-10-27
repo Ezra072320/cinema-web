@@ -1,0 +1,1 @@
+import{e}from"./index-ydrp6wM7.js";const r={movies:t=>e.get("/search/movies",{params:t,quiet:!0}),status:()=>e.get("/admin/search/status",{quiet:!0}),rebuild:()=>e.post("/admin/search/rebuild")};export{r as s};

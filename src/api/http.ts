@@ -29,7 +29,23 @@ http.interceptors.request.use((config) => {
 });
 
 http.interceptors.response.use(
-  (resp) => {
+  async (resp) => {
+    if (resp.config.responseType === 'blob' && resp.data instanceof Blob) {
+      const type = String(resp.headers['content-type'] ?? resp.data.type);
+      if (type.includes('application/json') || type.includes('+json')) {
+        try { resp.data = JSON.parse(await resp.data.text()); }
+        catch { resp.data = { msg: '下载响应格式异常' }; }
+        const failure = { msg: resp.data?.msg ?? '未收到有效的 Excel 文件，请重试' };
+        if (!resp.config.quiet) ElMessage.error(failure.msg);
+        return Promise.reject(failure);
+      } else if (type.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+        return resp.data;
+      } else {
+        const failure = { msg: '未收到有效的 Excel 文件，请重试' };
+        if (!resp.config.quiet) ElMessage.error(failure.msg);
+        return Promise.reject(failure);
+      }
+    }
     const data = resp.data as R;
     // 后端约定: code=1 为成功,data 字段才是真正的业务数据.
     // 必须返回 data.data —— 否则调用方拿到的就是 {code,msg,data} 整个 R 包装,
@@ -37,10 +53,15 @@ http.interceptors.response.use(
     if (data && data.code === 1) {
       return data.data as unknown as typeof resp.data;
     }
-    ElMessage.error(data?.msg ?? '服务异常');
+    if (!resp.config.quiet) ElMessage.error(data?.msg ?? '服务异常');
     return Promise.reject(data);
   },
   async (err) => {
+    if (err.response?.data instanceof Blob) {
+      try { err.response.data = JSON.parse(await err.response.data.text()); }
+      catch { err.response.data = { msg: '下载失败，请稍后重试' }; }
+    }
+    if (err.config?.quiet && err.response?.status !== 401) return Promise.reject(err);
     if (err.response?.status === 401) {
       const auth = useAuthStore();
       // 先保存 role,reset() 会清掉 role.
@@ -73,6 +94,10 @@ http.interceptors.response.use(
  * 拦截器里我们返回的就是 R<T>,所以 T 应该理解为"已经被剥壳的 data".
  */
 declare module 'axios' {
+  export interface AxiosRequestConfig {
+    /** Caller renders recovery/fallback state instead of a global toast. Authentication still applies. */
+    quiet?: boolean;
+  }
   export interface AxiosInstance {
     request<T = unknown>(config: AxiosRequestConfig): Promise<T>;
     get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T>;

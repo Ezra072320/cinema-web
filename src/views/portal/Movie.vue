@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { movieApi } from '@/api';
+import { searchApi } from '@/api/search';
+import { searchHighlight } from '@/utils/searchHighlight';
 import type { Movie } from '@/types';
 
 const route = useRoute();
@@ -21,28 +23,80 @@ const limit = 12;
 const total = ref(0);
 const status = ref<number>(3);
 const keyword = ref('');
+const genre = ref('');
+const area = ref('');
+const sort = ref('relevance');
+const mode = ref('FULLTEXT');
+const highlights = ref<Record<number, Record<string, string[]>>>({});
+let requestVersion = 0;
 
 const queryKeyword = computed(() => (route.query.q as string) ?? '');
 const queryStatus = computed(() => (route.query.status as string) ?? '');
 
 async function load() {
+  const version = ++requestVersion;
   loading.value = true;
   error.value = null;
   try {
-    const r = await movieApi.page({
-      page: page.value,
-      limit,
-      title: keyword.value || undefined,
-      showing: status.value === 3 ? undefined : status.value === 1,
-    });
-    list.value = r.rows;
-    total.value = r.total;
+    let result;
+    try {
+      result = await searchApi.movies({
+        page: page.value,
+        size: limit,
+        q: keyword.value || undefined,
+        genre: genre.value || undefined,
+        area: area.value || undefined,
+        sort: sort.value,
+        showing: status.value === 3 ? undefined : status.value === 1,
+      });
+    } catch (searchError) {
+      // The base group works without Search. Advanced filters require the search group.
+      if (genre.value || area.value || sort.value === 'score') throw searchError;
+      const basic = await movieApi.page({
+        page: page.value,
+        limit,
+        title: keyword.value || undefined,
+        showing: status.value === 3 ? undefined : status.value === 1,
+      });
+      result = {
+        total: basic.total,
+        rows: basic.rows.map((movie) => ({
+          movie,
+          highlights: {},
+          hasSchedules: movie.hasSchedules,
+          scheduleCount: movie.scheduleCount,
+          nextShowTime: movie.nextShowTime,
+        })),
+        mode: 'CATALOG',
+      };
+    }
+    if (version !== requestVersion) return;
+    list.value = result.rows.map((item) => ({
+      ...item.movie,
+      hasSchedules: item.hasSchedules,
+      scheduleCount: item.scheduleCount,
+      nextShowTime: item.nextShowTime,
+    }));
+    highlights.value = Object.fromEntries(
+      result.rows.map((item) => [item.movie.id, item.highlights]),
+    );
+    total.value = result.total;
+    mode.value = result.mode;
   } catch (err) {
-    // toast 由 http 拦截器统一弹; 这里只记 error 渲染重试入口(保留当前筛选)
-    error.value = err;
+    if (version === requestVersion) error.value = err;
   } finally {
-    loading.value = false;
+    if (version === requestVersion) loading.value = false;
   }
+}
+
+function changeFilters() {
+  cancelDebouncedSearch();
+  page.value = 1;
+  void load();
+}
+function excerpt(id: number) {
+  const item = highlights.value[id];
+  return item?.aliases?.[0] ?? item?.people?.[0] ?? item?.summary?.[0];
 }
 
 function goMovie(id: number) {
@@ -98,8 +152,9 @@ function changePage(p: number) {
 }
 
 watch(queryKeyword, (v) => {
-  if (v) {
+  {
     keyword.value = v;
+    page.value = 1;
     load();
   }
 });
@@ -121,6 +176,10 @@ onMounted(() => {
     if (n !== undefined) status.value = n;
   }
   load();
+});
+onUnmounted(() => {
+  clearTimeout(searchTimer);
+  requestVersion++;
 });
 </script>
 
@@ -145,14 +204,55 @@ onMounted(() => {
 
       <el-input
         v-model="keyword"
-        placeholder="搜索片名"
+        placeholder="搜索片名、别名、导演或演员"
+        :maxlength="100"
         clearable
         class="search"
         @input="onKeywordInput"
         @keyup.enter="onKeywordEnter"
         @clear="changeKeyword('')"
       />
+      <div class="advanced-filters">
+        <el-select v-model="genre" clearable placeholder="全部类型" @change="changeFilters">
+          <el-option
+            v-for="v in ['剧情', '喜剧', '动作', '爱情', '动画', '科幻', '悬疑', '犯罪', '纪录片']"
+            :key="v"
+            :label="v"
+            :value="v"
+          />
+        </el-select>
+        <el-select
+          v-model="area"
+          clearable
+          filterable
+          allow-create
+          default-first-option
+          placeholder="全部地区"
+          @change="changeFilters"
+        >
+          <el-option
+            v-for="v in ['中国大陆', '中国香港', '美国', '日本', '韩国', '法国', '英国']"
+            :key="v"
+            :label="v"
+            :value="v"
+          />
+        </el-select>
+        <el-select v-model="sort" aria-label="排序方式" @change="changeFilters">
+          <el-option label="综合排序" value="relevance" /><el-option
+            label="评分优先"
+            value="score"
+          /><el-option label="最新上映" value="release" />
+        </el-select>
+      </div>
     </div>
+
+    <p v-if="!loading && !error && mode !== 'FULLTEXT'" class="search-note" role="status">
+      {{
+        mode === 'BASIC'
+          ? '当前使用基础检索，暂不提供相关度排序和高亮。'
+          : '搜索服务暂不可用，当前仅按片名检索。'
+      }}
+    </p>
 
     <PageSkeleton v-if="loading" :rows="3" :show-header="false" />
 
@@ -161,12 +261,14 @@ onMounted(() => {
     <EmptyState v-else-if="!list.length" title="没有匹配的影片" hint="试试其它关键词或分类" />
 
     <div v-else class="grid">
-      <MovieCard
-        v-for="m in list"
-        :key="m.id"
-        :movie="m"
-        @click="goMovie(m.id)"
-      />
+      <div v-for="m in list" :key="m.id" class="search-result">
+        <MovieCard
+          :movie="m"
+          :title-highlight="searchHighlight(highlights[m.id]?.title?.[0])"
+          @click="goMovie(m.id)"
+        />
+        <p v-if="excerpt(m.id)" class="match-excerpt" v-html="searchHighlight(excerpt(m.id))" />
+      </div>
     </div>
 
     <el-pagination
@@ -216,7 +318,7 @@ onMounted(() => {
   }
 
   .search {
-    width: 240px;
+    width: 300px;
   }
 
   :deep(.el-radio-button__inner) {
@@ -245,6 +347,39 @@ onMounted(() => {
   gap: var(--cx-space-5) var(--cx-space-4);
 }
 
+.advanced-filters {
+  display: flex;
+  gap: 12px;
+  flex: 1 0 100%;
+}
+.advanced-filters :deep(.el-select) {
+  width: 160px;
+}
+.search-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--cx-text-muted);
+}
+.match-excerpt {
+  font-size: 12px;
+  color: var(--cx-text-secondary);
+  line-height: 1.6;
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+.search-result :deep(mark) {
+  color: var(--cx-color-primary);
+  background: color-mix(in srgb, var(--cx-color-primary) 14%, transparent);
+}
+@media (max-width: 640px) {
+  .advanced-filters {
+    flex-wrap: wrap;
+  }
+  .advanced-filters :deep(.el-select) {
+    flex: 1 1 120px;
+    width: auto;
+  }
+}
 .pager {
   justify-content: center;
   margin-top: var(--cx-space-4);

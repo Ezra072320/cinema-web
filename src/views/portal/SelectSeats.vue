@@ -17,6 +17,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { scheduleApi, userApi } from '@/api';
+import { benefitApi, type Coupon } from '@/api/benefit';
 import { useAuth } from '@/composables/useAuth';
 import SeatLegend from '@/components/SeatLegend.vue';
 import { useSeatGrid } from '@/composables/useSeatGrid';
@@ -34,6 +35,34 @@ const selected = ref<Set<number>>(new Set());
 const loading = ref(true);
 const submitting = ref(false);
 const checkoutKey = ref(crypto.randomUUID());
+const coupons = ref<Coupon[]>([]);
+const couponId = ref<number | undefined>();
+const couponsUnavailable = ref(false);
+const availableCoupons = computed(() =>
+  coupons.value.filter((c) => c.status === 'AVAILABLE' && Number(c.minimum) <= totalAmount.value),
+);
+const discount = computed(() =>
+  Number(availableCoupons.value.find((c) => c.id === couponId.value)?.discount ?? 0),
+);
+const payable = computed(() => Math.max(0, totalAmount.value - discount.value));
+watch(availableCoupons, (list) => {
+  if (!list.some((c) => c.id === couponId.value)) couponId.value = undefined;
+});
+watch(couponId, () => {
+  checkoutKey.value = crypto.randomUUID();
+});
+async function loadCoupons() {
+  if (!isLogin.value) return;
+  try {
+    coupons.value = await benefitApi.coupons();
+    couponsUnavailable.value = false;
+  } catch {
+    coupons.value = [];
+    couponsUnavailable.value = true;
+  }
+}
+onMounted(loadCoupons);
+watch(isLogin, loadCoupons);
 watch(
   () => `${scheduleId.value}:${[...selected.value].sort((a, b) => a - b).join(',')}`,
   () => {
@@ -291,7 +320,7 @@ async function submit() {
   }
 
   const confirmed = await ElMessageBox.confirm(
-    `已选 ${selected.value.size} 个座位,合计 ¥${totalAmount.value.toFixed(2)}. 确认下单?`,
+    `已选 ${selected.value.size} 个座位,实付 ¥${payable.value.toFixed(2)}${discount.value ? `（已优惠 ¥${discount.value.toFixed(2)}）` : ''}. 确认下单?`,
     '确认订单',
     { type: 'info', confirmButtonText: '确认下单' },
   ).catch(() => false);
@@ -304,6 +333,7 @@ async function submit() {
         scheduleId: scheduleId.value,
         // 传票 id, 不是座位 id
         ticketIds: [...selected.value],
+        ...(couponId.value ? { couponId: couponId.value } : {}),
         // 不传 userId —— 后端从 token 取, 传了反而 400
       },
       checkoutKey.value,
@@ -395,6 +425,25 @@ onMounted(load);
         </template>
       </SeatLegend>
 
+      <div v-if="isLogin" class="coupon-choice">
+        <label for="checkout-coupon">优惠券</label>
+        <el-select
+          id="checkout-coupon"
+          v-model="couponId"
+          clearable
+          placeholder="不使用优惠券"
+          style="width: min(100%, 300px)"
+        >
+          <el-option
+            v-for="c in availableCoupons"
+            :key="c.id"
+            :value="c.id"
+            :label="`${c.name} · 满${c.minimum}减${c.discount}`"
+          />
+        </el-select>
+        <RouterLink to="/me/coupons">去领券</RouterLink>
+        <small v-if="couponsUnavailable">优惠券服务暂不可用，可直接下单</small>
+      </div>
       <div class="summary cx-glass">
         <div class="info">
           <div class="label">已选座位</div>
@@ -413,8 +462,10 @@ onMounted(load);
           </div>
         </div>
         <div class="amount">
-          <span class="label">合计</span>
-          <span class="num">¥{{ totalAmount.toFixed(2) }}</span>
+          <span class="label"
+            >实付 <small v-if="discount">已优惠 ¥{{ discount.toFixed(2) }}</small></span
+          >
+          <span class="num">¥{{ payable.toFixed(2) }}</span>
         </div>
         <el-button
           type="primary"
@@ -433,6 +484,20 @@ onMounted(load);
 </template>
 
 <style scoped lang="scss">
+.coupon-choice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0;
+  font-size: 13px;
+}
+.coupon-choice a {
+  color: #e4bc75;
+}
+.coupon-choice small {
+  color: #939baa;
+}
 .seats-wrap {
   max-width: 960px;
   margin: 0 auto;

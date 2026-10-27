@@ -17,6 +17,7 @@ import {
 } from '@element-plus/icons-vue';
 import { useAuthStore } from '@/stores/auth';
 import { useAuth } from '@/composables/useAuth';
+import { managementPermission } from '@/api/access';
 
 const route = useRoute();
 const router = useRouter();
@@ -30,8 +31,19 @@ const collapsed = ref(false);
  * 否则打开后台时侧栏直接盖住主内容, 且点内容区收不起来.
  */
 const isMobile = useMediaQuery('(max-width: 768px)');
-watch(isMobile, (m) => { if (m) collapsed.value = true; }, { immediate: true });
-watch(() => route.fullPath, () => { if (isMobile.value) collapsed.value = true; });
+watch(
+  isMobile,
+  (m) => {
+    if (m) collapsed.value = true;
+  },
+  { immediate: true },
+);
+watch(
+  () => route.fullPath,
+  () => {
+    if (isMobile.value) collapsed.value = true;
+  },
+);
 
 interface MenuItem {
   idx: string;
@@ -53,10 +65,18 @@ const menus: MenuItem[] = [
   { idx: '/manage/movies', label: '影片管理', icon: VideoCamera },
   { idx: '/manage/schedules', label: '排片管理', icon: Calendar },
   { idx: '/manage/orders', label: '订单管理', icon: Tickets },
+  { idx: '/manage/governance', label: '流量治理', icon: Operation },
+  { idx: '/manage/benefits', label: '优惠券', icon: Tickets },
   { idx: '/manage/revenue', label: '营收', icon: DataAnalysis },
 ];
 
 const activeIdx = computed(() => route.path);
+const visibleMenus = computed(() =>
+  menus.filter((m) => {
+    const required = managementPermission(m.idx);
+    return required && auth.can(required);
+  }),
+);
 
 /**
  * 面包屑.
@@ -83,7 +103,8 @@ const breadcrumbs = computed<Array<{ label: string; to?: string }>>(() => {
       ? { label: '管理后台' }
       : { label: '管理后台', to: '/manage/overview' },
   );
-  if (owner) crumbs.push(isMenuItself ? { label: owner.label } : { label: owner.label, to: owner.idx });
+  if (owner)
+    crumbs.push(isMenuItself ? { label: owner.label } : { label: owner.label, to: owner.idx });
   if (owner && !isMenuItself) {
     const title = route.meta?.title as string | undefined;
     if (title) crumbs.push({ label: title });
@@ -105,6 +126,7 @@ function handleLogout() {
       @click="collapsed = true"
     />
     <el-aside
+      v-show="!isMobile || !collapsed"
       :width="collapsed ? 'var(--cx-aside-w-collapsed)' : 'var(--cx-aside-w)'"
       class="admin-aside"
     >
@@ -121,7 +143,7 @@ function handleLogout() {
         :collapse="collapsed"
         class="menu"
       >
-        <template v-for="m in menus" :key="m.idx">
+        <template v-for="m in visibleMenus" :key="m.idx">
           <el-sub-menu v-if="m.children" :index="m.idx">
             <template #title>
               <el-icon><component :is="m.icon" /></el-icon>

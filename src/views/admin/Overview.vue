@@ -7,6 +7,9 @@ import { ArrowRight, Calendar, House, Tickets, VideoCamera } from '@element-plus
 import { statApi } from '@/api';
 import { CINEMA_DARK } from '@/styles/echarts-theme';
 import type { OverviewStat } from '@/types';
+import { useAuthStore } from '@/stores/auth';
+import { managementPermission } from '@/api/access';
+const auth = useAuthStore();
 
 const data = ref<OverviewStat | null>(null);
 const loading = ref(true);
@@ -78,6 +81,12 @@ const quickLinks = [
   { to: '/manage/orders', icon: Tickets, label: '订单管理', desc: '订单查询与详情核对' },
   { to: '/manage/halls', icon: House, label: '影厅管理', desc: '影厅与座位图草稿/发布' },
 ];
+const visibleQuickLinks = computed(() =>
+  quickLinks.filter((link) => {
+    const required = managementPermission(link.to);
+    return required && auth.can(required);
+  }),
+);
 
 // ===== 图表 =====
 
@@ -156,14 +165,20 @@ const topOption = computed(() => ({
   },
   yAxis: {
     type: 'category',
-    data: (data.value?.topMovies ?? []).slice(0, 5).map((m) => m.title).reverse(),
+    data: (data.value?.topMovies ?? [])
+      .slice(0, 5)
+      .map((m) => m.title)
+      .reverse(),
     axisLabel: { color: '#a1a1aa', width: 110, overflow: 'truncate' },
   },
   series: [
     {
       name: '票房',
       type: 'bar',
-      data: (data.value?.topMovies ?? []).slice(0, 5).map((m) => m.boxOffice).reverse(),
+      data: (data.value?.topMovies ?? [])
+        .slice(0, 5)
+        .map((m) => m.boxOffice)
+        .reverse(),
       itemStyle: {
         color: {
           type: 'linear',
@@ -257,11 +272,21 @@ onMounted(load);
 
       <section class="charts">
         <el-card class="chart-card cx-glass">
-          <v-chart v-if="hasTrend" :option="trendOption" autoresize style="height: var(--cx-chart-h)" />
+          <v-chart
+            v-if="hasTrend"
+            :option="trendOption"
+            autoresize
+            style="height: var(--cx-chart-h)"
+          />
           <EmptyState v-else title="暂无营收数据" hint="有成交订单后会自动出现在这里" />
         </el-card>
         <el-card class="chart-card cx-glass">
-          <v-chart v-if="hasDist" :option="pieOption" autoresize style="height: var(--cx-chart-h)" />
+          <v-chart
+            v-if="hasDist"
+            :option="pieOption"
+            autoresize
+            style="height: var(--cx-chart-h)"
+          />
           <EmptyState v-else title="暂无类型分布" hint="影片同步后会按类型统计" />
         </el-card>
         <el-card class="chart-card cx-glass full">
@@ -271,8 +296,15 @@ onMounted(load);
       </section>
 
       <section class="quick-links">
-        <RouterLink v-for="l in quickLinks" :key="l.to" :to="l.to" class="quick-card cx-card">
-          <span class="quick-icon"><el-icon :size="20"><component :is="l.icon" /></el-icon></span>
+        <RouterLink
+          v-for="l in visibleQuickLinks"
+          :key="l.to"
+          :to="l.to"
+          class="quick-card cx-card"
+        >
+          <span class="quick-icon"
+            ><el-icon :size="20"><component :is="l.icon" /></el-icon
+          ></span>
           <span class="quick-meta">
             <strong>{{ l.label }}</strong>
             <span>{{ l.desc }}</span>
